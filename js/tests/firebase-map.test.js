@@ -31,3 +31,30 @@ test("fullPath: no uid", () => {
 test("fullPath: bad paths", () => {
   for (const p of ["", "/x", "a//b", "a/../b", "a/"]) eq(throwsMsg(() => fullPath("u1", p)), "Bad path");
 });
+
+test("data: a failed listener clears pending and warns once", async () => {
+  const { createFirebaseData } = await import("../core/data-firebase.js");
+  let next, error;
+  const fake = {
+    apps: [{}],
+    firestore: () => ({
+      enablePersistence: async () => {},
+      onSnapshotsInSync: () => () => {},
+      doc: () => ({ onSnapshot: (_o, n, e) => { next = n; error = e; return () => {}; } }),
+    }),
+  };
+  const d = createFirebaseData(fake, {});
+  const seen = [];
+  d.onPending((v) => seen.push(v));
+  d.watch("users/u1/settings/profile", () => {});
+  await Promise.resolve(); await Promise.resolve();
+  next({ metadata: { hasPendingWrites: true }, exists: true, data: () => ({}) });
+  eq(d.pending(), true);
+  const warns = [];
+  const orig = console.warn;
+  console.warn = (m) => warns.push(m);
+  try { error({ code: "permission-denied" }); } finally { console.warn = orig; }
+  eq(d.pending(), false);
+  eq(seen, [true, false]);
+  eq(warns.length, 1);
+});

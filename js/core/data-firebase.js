@@ -89,6 +89,11 @@ export function createFirebaseData(firebase, config) {
           entry.hasPending = snap.metadata.hasPendingWrites;
           cb(isDoc(p) ? (snap.exists ? snap.data() : null) : toList(snap));
           refreshPending();
+        }, (e) => {
+          // The listener is dead (e.g. permission-denied): stop counting its writes as pending.
+          entry.hasPending = false;
+          refreshPending();
+          console.warn(`Live updates stopped for ${p} (${(e && e.code) || "unknown"}).`);
         });
       });
       return () => {
