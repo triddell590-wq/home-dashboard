@@ -83,7 +83,7 @@ function mount(container) {
       const found = registration ? await checkForUpdate(registration) : null;
       if (alive) updateStatus.textContent = found === null ? "Updates need the installed app" : found ? "New version ready" : "You're up to date";
     } catch {
-      if (alive) updateStatus.textContent = "Couldn't check — try again when you're online";
+      if (alive) updateStatus.textContent = "Couldn't check — try again";
     } finally {
       check.disabled = false;
     }

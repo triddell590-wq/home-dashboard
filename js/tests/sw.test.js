@@ -217,6 +217,14 @@ test("checkForUpdate asks the browser to look, and reports whether a new version
   eq(await checkForUpdate(undefined), false);
 });
 
+test("checkForUpdate fails when the new version could not be installed", async () => {
+  const worker = fakeWorker();
+  const reg = fakeRegistration({ update: async () => { reg.installing = worker; setTimeout(() => { reg.installing = null; worker.change("redundant"); }, 5); } });
+  let message = null;
+  try { await checkForUpdate(reg); } catch (e) { message = e.message; }
+  eq(message, "The new version could not be installed");
+});
+
 test("applyUpdate with nothing waiting (another tab already updated) reloads straight away", () => {
   let reloads = 0;
   applyUpdate(fakeRegistration(), fakeContainer({}), () => reloads++);

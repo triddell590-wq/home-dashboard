@@ -47,7 +47,7 @@ export function applyUpdate(registration, container = serviceWorkers(), reload =
   registration.waiting.postMessage({ type: "skip-waiting" });
 }
 
-/** Asks the server for a newer version. Resolves to whether one is now waiting. */
+/** Asks the server for a newer version. Resolves to whether one is now waiting; rejects when one was found but failed to install. */
 export async function checkForUpdate(registration) {
   if (!registration) return false;
   await registration.update();
@@ -58,6 +58,7 @@ export async function checkForUpdate(registration) {
       worker.addEventListener("statechange", done);
       done();
     });
+    if (worker.state === "redundant") throw new Error("The new version could not be installed");
   }
   return !!registration.waiting;
 }
