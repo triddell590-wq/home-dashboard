@@ -10,6 +10,7 @@ import { createMemoryData } from "./core/data-memory.js";
 import { el } from "./core/dom.js";
 import { registerTab, tabs } from "./core/registry.js";
 import * as router from "./core/router.js";
+import { configureScreen, depsFor, endSession } from "./core/signout.js";
 import { startSyncStatus } from "./core/sync-status.js";
 import { buildTabbar } from "./core/tabbar.js";
 import { applySavedTheme, currentTheme, toggleTheme } from "./core/theme.js";
@@ -69,6 +70,23 @@ function buildRail() {
 
 let started = false;
 let stopSignin = null;
+let stopSync = () => {};
+let closeMore = () => {};
+
+/** A plain full-page message with one button, for when the app cannot go on. */
+function showFatal(text, label, onClick = () => location.reload()) {
+  rail.hidden = true;
+  $("tabbar").hidden = true;
+  page.replaceChildren(el("div", { class: "signin-wrap" }, el("div", { class: "card signin static", role: "alert" },
+    el("p", {}, text), el("div", { class: "actions" }, el("button", { class: "btn primary", type: "button", onclick: onClick }, label)))));
+}
+
+configureScreen({
+  hideChrome() { rail.hidden = true; $("tabbar").hidden = true; $("sync").hidden = true; closeMore(); },
+  stopSync: () => stopSync(),
+  unmountView: () => router.stop(),
+  showMessage: (text) => showFatal(text, "Reload"),
+});
 
 function showApp(user) {
   startData(user.uid);
@@ -78,9 +96,10 @@ function showApp(user) {
   const markRail = buildRail();
   const tabbar = $("tabbar");
   const markBar = buildTabbar(tabbar, tabs(), icon);
+  closeMore = markBar.close;
   rail.hidden = false;
   tabbar.hidden = false;
-  startSyncStatus($("sync"), data());
+  stopSync = startSyncStatus($("sync"), data());
   started = true;
   router.start(page, tabs(), (id) => { markRail(id); markBar(id); });
 }
@@ -93,23 +112,29 @@ function showSignin() {
 }
 
 applySavedTheme();
-const mode = chooseBackend(location.search, FIREBASE_CONFIG);
-if (mode === "memory") {
-  const memoryAuth = createMemoryAuth();
-  memoryAuth.addUser("test@example.com", "test-only-password", "owner"); // memory backend only
-  useAuth(memoryAuth);
-  useData(createMemoryData());
-  const band = $("band");
-  band.textContent = "Test mode — nothing is saved";
-  band.hidden = false;
-} else {
-  useAuth(createFirebaseAuth(globalThis.firebase, FIREBASE_CONFIG));
-  useData(createFirebaseData(globalThis.firebase, FIREBASE_CONFIG));
-}
+try {
+  const mode = chooseBackend(location.search, FIREBASE_CONFIG);
+  if (mode === "memory") {
+    const memoryAuth = createMemoryAuth();
+    memoryAuth.addUser("test@example.com", "test-only-password", "owner"); // memory backend only
+    useAuth(memoryAuth);
+    useData(createMemoryData());
+    const band = $("band");
+    band.textContent = "Test mode — nothing is saved";
+    band.hidden = false;
+  } else {
+    useAuth(createFirebaseAuth(globalThis.firebase, FIREBASE_CONFIG));
+    useData(createFirebaseData(globalThis.firebase, FIREBASE_CONFIG));
+  }
 
-// Until the first callback (Firebase restores a saved session first) neither the form nor the app shows.
-auth().onChange((user) => {
-  if (user && !started) showApp(user);
-  else if (!user && started) location.reload(); // signed out elsewhere: start clean, data() is no longer usable
-  else if (!user && !stopSignin) showSignin();
-});
+  // Until the first callback (Firebase restores a saved session first) neither the form nor the app shows.
+  auth().onChange((user) => {
+    if (user && !started) showApp(user);
+    // Signed out elsewhere: clear this device's offline copy the same way Sign out does, then start clean.
+    else if (!user && started) endSession(depsFor({ data, auth }));
+    else if (!user && !stopSignin) showSignin();
+  });
+} catch (err) {
+  console.error(err);
+  showFatal("Couldn't start the app. Check your connection and reload.", "Reload");
+}

@@ -46,6 +46,18 @@ export function start(container, tabs, onChange = () => {}) {
   show();
 }
 
+/** Leave the page empty and stop reacting to the address bar (used when the session ends). */
+export function stop() {
+  if (!state) return;
+  window.removeEventListener("hashchange", show);
+  state.token++;
+  if (state.unmount) {
+    try { state.unmount(); } catch (err) { console.error(err); }
+    state.unmount = null;
+  }
+  state.container.replaceChildren();
+}
+
 async function show() {
   const route = parseHash(location.hash);
   const tab = state.tabs.find((t) => t.id === route.view) || state.tabs.find((t) => t.id === "overview") || state.tabs[0];

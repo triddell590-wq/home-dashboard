@@ -35,3 +35,22 @@ test("the Overview and Settings views never assign innerHTML", async () => {
     ok(!/html\s*:/.test(source), `${file} uses the el html option`);
   }
 });
+
+test("saveName shows Saved at once without waiting for the server, and reports a rejected write plainly", async () => {
+  const { saveName } = await import("../views/settings.js");
+  const events = [];
+  const never = () => new Promise(() => {});
+  saveName(never, { other: 1 }, "  Tom ", { saved: (n) => events.push(["saved", n]), failed: (m) => events.push(["failed", m]) });
+  eq(events, [["saved", "Tom"]]);
+  const got = [];
+  saveName(() => Promise.reject(new Error("FirebaseError: raw")), {}, "Tom", { saved() {}, failed: (m) => got.push(m) });
+  await new Promise((r) => setTimeout(r, 0));
+  eq(got, ["Couldn't save — try again"]);
+});
+
+test("summaryText joins the phrases and is null when there are none", async () => {
+  const { summaryText } = await import("../views/overview.js");
+  eq(summaryText(["a", null, "b"]), "a · b");
+  eq(summaryText([]), null);
+  eq(summaryText([null, ""]), null);
+});

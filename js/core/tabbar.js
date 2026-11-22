@@ -23,6 +23,7 @@ export function buildTabbar(nav, tabs, icon) {
   };
   nav.replaceChildren(...bar.map(link));
   let moreButton = null;
+  let closeMore = () => {};
   if (more.length) {
     const sheet = el("div", { class: "sheet", id: "more-sheet", hidden: true, role: "menu" }, more.map(link));
     const backdrop = el("div", { class: "sheet-backdrop", hidden: true });
@@ -38,9 +39,12 @@ export function buildTabbar(nav, tabs, icon) {
     sheet.addEventListener("click", () => setOpen(false));
     window.addEventListener("keydown", (e) => { if (e.key === "Escape") setOpen(false); });
     window.addEventListener("hashchange", () => setOpen(false));
-    nav.append(moreButton, backdrop, sheet);
+    nav.append(moreButton);
+    // Outside the nav: the bar's backdrop-filter would otherwise be the containing block for these fixed layers.
+    document.body.append(backdrop, sheet);
+    closeMore = () => setOpen(false);
   }
-  return (activeId) => {
+  const mark = (activeId) => {
     for (const [id, a] of links) {
       a.classList.toggle("active", id === activeId);
       if (id === activeId) a.setAttribute("aria-current", "page");
@@ -48,4 +52,6 @@ export function buildTabbar(nav, tabs, icon) {
     }
     if (moreButton) moreButton.classList.toggle("active", moreIsActive(more, activeId));
   };
+  mark.close = () => closeMore();
+  return mark;
 }

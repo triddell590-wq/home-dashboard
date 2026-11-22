@@ -2,6 +2,7 @@
 import { checkForUpdate } from "../core/update.js";
 import { auth } from "../core/auth.js";
 import { data } from "../core/data.js";
+import { depsFor, signOutFlow } from "../core/signout.js";
 import { el, toast } from "../core/dom.js";
 import { currentTheme, setTheme } from "../core/theme.js";
 
@@ -13,6 +14,14 @@ const NAME_MAX = 40;
 /** Trim and cut to 40 characters. Markup is kept as plain text; the views only ever show it with textContent. */
 export function cleanName(text) {
   return String(text ?? "").trim().slice(0, NAME_MAX);
+}
+
+/** Show "Saved" at once (an offline write only completes when the server answers) and report only a rejected write. */
+export function saveName(set, profile, text, { saved, failed }) {
+  const clean = cleanName(text);
+  Promise.resolve().then(() => set("settings/profile", { ...profile, name: clean }))
+    .catch(() => failed("Couldn't save — try again"));
+  saved(clean);
 }
 
 function mount(container) {
@@ -29,21 +38,23 @@ function mount(container) {
     el("div", { class: "form-grid", style: { gridTemplateColumns: "1fr", marginTop: "12px" } },
       el("label", {}, "Your name, for the greeting (optional)", name)),
     nameError, el("div", { class: "actions" }, el("button", { class: "btn primary", type: "submit" }, "Save")));
-  form.addEventListener("submit", async (e) => {
+  let profile = {};
+  let touched = false;
+  name.addEventListener("input", () => { touched = true; });
+  form.addEventListener("submit", (e) => {
     e.preventDefault();
     nameError.textContent = "";
-    try {
-      const profile = (await data().get("settings/profile")) || {};
-      const clean = cleanName(name.value);
-      await data().set("settings/profile", { ...profile, name: clean });
-      name.value = clean;
-      toast("Saved");
-    } catch (err) {
-      nameError.textContent = err.message;
-    }
+    saveName((path, value) => data().set(path, value), profile, name.value, {
+      saved: (clean) => { name.value = clean; touched = true; toast("Saved"); },
+      failed: (message) => { if (alive) nameError.textContent = message; },
+    });
   });
   grid.append(form);
-  data().get("settings/profile").then((p) => { if (alive && p && !name.value) name.value = cleanName(p.name); }).catch(() => {});
+  // Watching (not get) fills the field from the local copy, supplies the merge base, and makes unsynced writes count as pending.
+  const unwatch = data().watch("settings/profile", (p) => {
+    profile = p || {};
+    if (alive && !touched) name.value = cleanName(profile.name);
+  });
 
   // theme
   const choices = ["midnight", "daylight"].map((value) => el("label", { class: "choice" },
@@ -56,17 +67,7 @@ function mount(container) {
 
   // account
   const user = auth().current();
-  const signOut = async () => {
-    if (!window.confirm("Sign out of this device?")) return;
-    try {
-      await data().reset();
-      await auth().signOut();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      location.reload();
-    }
-  };
+  const signOut = () => signOutFlow(depsFor({ data, auth }));
   grid.append(el("section", { class: "card half static" }, el("div", { class: "label" }, "Account"),
     el("p", { class: "sub" }, user ? `Signed in as ${user.email}` : "Signed in"),
     el("div", { class: "actions" }, el("button", { class: "btn danger", type: "button", onclick: signOut }, "Sign out"))));
@@ -89,5 +90,5 @@ function mount(container) {
   grid.append(el("section", { class: "card half static" }, el("div", { class: "label" }, "About"),
     el("p", { class: "sub" }, `Version ${VERSION}`), el("div", { class: "actions" }, check), updateStatus));
 
-  return () => { alive = false; window.removeEventListener("themechange", onTheme); };
+  return () => { alive = false; if (typeof unwatch === "function") unwatch(); window.removeEventListener("themechange", onTheme); };
 }

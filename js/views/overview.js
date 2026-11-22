@@ -13,6 +13,10 @@ export function greetingText(name, date = new Date()) {
   return clean ? `${greeting(date)}, ${clean}` : greeting(date);
 }
 
+export function summaryText(phrases) {
+  return phrases.filter(Boolean).join(" · ") || null;
+}
+
 export function overviewEmpty(cardCount) {
   if (cardCount !== 0) return null;
   return ["Your calendar comes next. Lessons, weather and trading follow, one at a time.",
@@ -23,9 +27,8 @@ function mount(container) {
   const now = new Date();
   let alive = true;
   const greetingLine = el("h1", {}, greetingText("", now));
-  const summary = el("p", { class: "summary" }, " ");
   const banner = el("div", { class: "banner" },
-    el("div", { class: "eyebrow" }, el("span", {}, localDate(now))), greetingLine, summary);
+    el("div", { class: "eyebrow" }, el("span", {}, localDate(now))), greetingLine);
   const grid = el("div", { class: "grid" });
   container.append(el("section", { class: "hero" }, banner), grid);
 
@@ -47,7 +50,8 @@ function mount(container) {
   });
 
   Promise.all(dayParts().map((part) => Promise.resolve(part.load(now)).catch(() => null))).then((phrases) => {
-    if (alive) summary.textContent = phrases.filter(Boolean).join(" · ") || " ";
+    const text = summaryText(phrases);
+    if (alive && text) banner.append(el("p", { class: "summary" }, text));
   });
 
   return () => {
