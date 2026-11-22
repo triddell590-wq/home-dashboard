@@ -3,7 +3,7 @@ import { test, before, after } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
 import { ownerUidFromRules } from './owner.mjs';
 
 const rulesText = readFileSync(fileURLToPath(new URL('../../firestore.rules', import.meta.url)), 'utf8');
@@ -47,6 +47,18 @@ test('another user cannot write their own path (not the owner)', async () => {
 
 test('owner cannot read another user\'s profile', async () => {
   await assertFails(getDoc(doc(asOwner(), `users/${INTRUDER}/settings/profile`)));
+});
+
+test('owner cannot write another user\'s path', async () => {
+  await assertFails(setDoc(doc(asOwner(), `users/${INTRUDER}/settings/profile`), { name: 'x' }));
+});
+
+test('owner can list and delete on their own path', async () => {
+  const db = asOwner();
+  const ref = doc(db, `users/${OWNER}/settings/scratch`);
+  await assertSucceeds(setDoc(ref, { a: 1 }));
+  await assertSucceeds(getDocs(collection(db, `users/${OWNER}/settings`)));
+  await assertSucceeds(deleteDoc(ref));
 });
 
 test('signed-out visitor cannot write the owner profile', async () => {

@@ -16,8 +16,12 @@ const run = await import('./run.mjs').catch(e => ({ importError: e }));
 await check('owner.mjs exports ownerUidFromRules', () => {
   assert.equal(typeof owner.ownerUidFromRules, 'function', 'ownerUidFromRules is missing from tests/rules/owner.mjs');
 });
-await check('reads the placeholder from the committed rules file', () => {
-  assert.equal(owner.ownerUidFromRules(rulesText), 'REPLACE_WITH_YOUR_UID');
+// SETUP.md has Tom put his own ID in firestore.rules, so the committed file may hold either.
+await check('the committed rules file yields an owner ID', () => {
+  assert.match(owner.ownerUidFromRules(rulesText), /^\w+$/);
+});
+await check('reads the placeholder', () => {
+  assert.equal(owner.ownerUidFromRules('function ownerUid() { return "REPLACE_WITH_YOUR_UID"; }'), 'REPLACE_WITH_YOUR_UID');
 });
 await check('reads a real-looking uid', () => {
   assert.equal(owner.ownerUidFromRules('function ownerUid() {\n  return "abc123";\n}'), 'abc123');
