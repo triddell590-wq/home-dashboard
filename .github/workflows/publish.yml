@@ -59,9 +59,10 @@ jobs:
           set -euo pipefail
           SHA="${GITHUB_SHA::7}"
           mkdir _site
+          # '.[!.]*' is every dotfile and dot-folder (.git, .github, .gitignore) but not the folder "." itself.
           rsync -a ./ _site/ \
-            --exclude=_site --exclude=.git --exclude=.github --exclude=node_modules \
-            --exclude=tests --exclude=tools --exclude='package*.json' \
+            --exclude='.[!.]*' --exclude=_site --exclude=node_modules \
+            --exclude=tests --exclude=tests.html --exclude=tools --exclude='package*.json' \
             --exclude=firebase.json --exclude=firestore.rules --exclude='*.md'
           sed -i "s/VERSION = \"dev\"/VERSION = \"$SHA\"/" _site/js/version.js _site/sw.js
           if grep -n 'VERSION = "dev"' _site/js/version.js _site/sw.js; then echo "A dev version is left"; exit 1; fi
