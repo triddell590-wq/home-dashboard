@@ -66,9 +66,14 @@ export function localTime(iso) {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Dates and the greeting follow Europe/London whatever the device's time zone is.
+const LONDON = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hourCycle: "h23",
+  weekday: "long", day: "numeric", month: "long", hour: "numeric" });
+const londonParts = (date) => Object.fromEntries(LONDON.formatToParts(new Date(date)).map((p) => [p.type, p.value]));
+
 export function localDate(date) {
-  const d = new Date(date);
-  return `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${LONG_MONTHS[d.getMonth()]}`;
+  const p = londonParts(date);
+  return `${p.weekday} ${Number(p.day)} ${p.month}`;
 }
 
 export function relativeDay(iso, now = new Date()) {
@@ -89,7 +94,7 @@ export function countdown(ms) {
 }
 
 export function greeting(date = new Date()) {
-  const h = new Date(date).getHours();
+  const h = Number(londonParts(date).hour);
   if (h >= 5 && h < 12) return "Good morning";
   if (h >= 12 && h < 18) return "Good afternoon";
   return "Good evening";

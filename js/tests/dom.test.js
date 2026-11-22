@@ -1,4 +1,4 @@
-import { countdown, greeting, localTime, money, pct, relativeDay } from "../core/dom.js";
+import { countdown, greeting, localDate, localTime, money, pct, relativeDay } from "../core/dom.js";
 import { eq, test } from "./harness.js";
 
 test("money formats dollars with signs", () => {
@@ -23,11 +23,22 @@ test("countdown reads like speech", () => {
   eq(countdown(-5e3), "less than a minute");
 });
 
-test("greeting by the hour", () => {
-  eq(greeting(new Date(2026, 10, 13, 4, 59)), "Good evening");
-  eq(greeting(new Date(2026, 10, 13, 5, 0)), "Good morning");
-  eq(greeting(new Date(2026, 10, 13, 12, 0)), "Good afternoon");
-  eq(greeting(new Date(2026, 10, 13, 18, 0)), "Good evening");
+// London in November is UTC, so these are built from UTC instants and hold in any device time zone.
+test("greeting by the London hour", () => {
+  eq(greeting(new Date(Date.UTC(2026, 10, 13, 4, 59))), "Good evening");
+  eq(greeting(new Date(Date.UTC(2026, 10, 13, 5, 0))), "Good morning");
+  eq(greeting(new Date(Date.UTC(2026, 10, 13, 12, 0))), "Good afternoon");
+  eq(greeting(new Date(Date.UTC(2026, 10, 13, 18, 0))), "Good evening");
+});
+
+test("localDate and greeting use Europe/London, not the device zone", () => {
+  // 23:30 UTC on 1 July is 00:30 on Thursday 2 July in London (BST).
+  eq(localDate(new Date("2026-07-01T23:30:00Z")), "Thursday 2 July");
+  eq(greeting(new Date("2026-07-01T23:30:00Z")), "Good evening");
+  // In winter London is UTC, so 23:30 UTC stays on 15 January.
+  eq(localDate(new Date("2026-01-15T23:30:00Z")), "Thursday 15 January");
+  // BST morning: 04:30 UTC is 05:30 in London, so it is already morning.
+  eq(greeting(new Date("2026-07-01T04:30:00Z")), "Good morning");
 });
 
 test("local time is 24-hour", () => {

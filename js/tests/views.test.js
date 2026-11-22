@@ -19,7 +19,7 @@ test("overviewEmpty gives the two lines only when no cards are registered", () =
 });
 
 test("greetingText returns a plain string, with or without a name", () => {
-  const morning = new Date(2026, 10, 22, 8, 0);
+  const morning = new Date(Date.UTC(2026, 10, 22, 8, 0));
   eq(greetingText("Tom", morning), "Good morning, Tom");
   eq(greetingText("", morning), "Good morning");
   eq(typeof greetingText("<b>x</b>", morning), "string");
