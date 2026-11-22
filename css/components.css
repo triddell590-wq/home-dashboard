@@ -111,3 +111,9 @@ dialog::backdrop { background: rgba(0, 0, 0, .45); }
 .badge.buy, .badge.status-filled { color: var(--up); }
 .badge.sell, .badge.status-rejected { color: var(--down); }
 .table tr.untradable td { color: var(--faint); }
+
+/* phones: 44px tap targets, and 16px text because iOS zooms in on a smaller field when it is tapped */
+@media (max-width: 699px) {
+  .btn, .btn.small, .seg button, input:not([type="radio"], [type="checkbox"]), select, textarea { min-height: 44px; font-size: 16px; }
+  .btn, .btn.small, .seg button { min-width: 44px; }
+}

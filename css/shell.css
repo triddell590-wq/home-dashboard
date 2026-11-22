@@ -22,7 +22,7 @@ a { color: var(--accent); }
 
 /* floating sidebar that widens on hover or keyboard focus to show each tab's name */
 .rail {
-  position: fixed; left: 18px; top: 50%; transform: translateY(-50%); z-index: 20;
+  position: fixed; left: calc(18px + env(safe-area-inset-left)); top: 50%; transform: translateY(-50%); z-index: 20;
   display: flex; flex-direction: column; gap: 6px; padding: 10px; width: var(--rail-closed); overflow: hidden;
   background: var(--glass); border: 1px solid var(--edge); border-radius: 22px;
   backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%);
@@ -45,7 +45,7 @@ a { color: var(--accent); }
 .rail .spacer { flex: 1; min-height: 14px; }
 
 /* page container and its cross-fade */
-#page { position: relative; z-index: 1; padding: 56px 48px 80px calc(var(--rail-closed) + 48px); max-width: 1480px; margin: 0 auto; transition: opacity .2s var(--ease); }
+#page { position: relative; z-index: 1; padding: 56px 48px 80px calc(var(--rail-closed) + 48px + env(safe-area-inset-left)); max-width: 1480px; margin: 0 auto; transition: opacity .2s var(--ease); }
 #page.leaving, #page.entering { opacity: 0; }
 
 #notice {
@@ -68,7 +68,7 @@ a { color: var(--accent); }
 #update[hidden] { display: none; }
 #update button { font: inherit; letter-spacing: inherit; color: var(--button-text); background: var(--button); border: 0; border-radius: 99px; padding: 0 18px; min-height: 44px; min-width: 44px; cursor: pointer; }
 #sync { right: 14px; color: var(--muted); }
-.signin-wrap { min-height: 70vh; display: grid; place-items: center; margin-left: calc(-1 * var(--rail-closed)); }
+.signin-wrap { min-height: 70vh; display: grid; place-items: center; margin-left: calc(-1 * (var(--rail-closed) + env(safe-area-inset-left))); }
 .signin { width: min(100%, 420px); }
 .signin .actions, .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
 .choice { display: flex; flex-direction: row; gap: 8px; align-items: center; font-size: 14px; color: var(--text); min-height: 44px; }
@@ -80,7 +80,8 @@ a { color: var(--accent); }
   .rail { display: none; }
   #page { padding: calc(52px + env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom)) 16px; }
   .signin-wrap { margin-left: 0; }
-  #toasts { right: 16px; left: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); }
+  /* z-index 30 keeps the toasts and the sync note under the More sheet and its backdrop (31, 32) */
+  #toasts { right: 16px; left: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 30; }
   #page .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #page .grid > * { grid-column: 1 / -1; }
   #page .grid > .card.small { grid-column: span 1; }
@@ -104,5 +105,5 @@ a { color: var(--accent); }
   .sheet a { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 14px; border-radius: 12px; color: var(--muted); font: 14px var(--font); text-decoration: none; }
   .sheet svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
   .sheet a.active { color: var(--text); background: var(--glass-strong); }
-  #sync { top: auto; bottom: calc(76px + env(safe-area-inset-bottom)); right: 12px; }
+  #sync { top: auto; bottom: calc(76px + env(safe-area-inset-bottom)); right: 12px; z-index: 30; }
 }

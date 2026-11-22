@@ -2,7 +2,9 @@
 // Usage: node tools/browser-check.mjs <base-url> <screenshot-folder>
 // Opens ?backend=memory, signs in with the test user, and for Overview and Settings at 375x812 and
 // 1280x800 in both themes records console errors and horizontal scroll, and saves a screenshot.
-// Exits 1 on any console error or horizontal scroll. Set CHROME to use another browser binary.
+// Also checks, at phone width, that every tap target (sign-in form, each page) is at least 44x44 and that a toast
+// never covers the More sheet; and at both widths that a 40-character unbroken name does not widen the Overview.
+// Exits 1 on any console error, horizontal scroll or failed check. Set CHROME to use another browser binary.
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
@@ -90,6 +92,44 @@ const waitFor = async (expression, what) => {
   throw new Error("Timed out waiting for " + what);
 };
 
+// Visible controls smaller than 44x44. A radio or checkbox counts as its label, which is what gets tapped.
+// Rounded, because a card still settling into place can measure 43.99.
+const smallTargets = () => evaluate(`[...document.querySelectorAll("a[href], button, input, select, textarea")].map((node) => {
+  const target = node.matches('input[type="radio"], input[type="checkbox"]') && node.closest("label") || node;
+  const r = target.getBoundingClientRect();
+  if (!r.width || !r.height || getComputedStyle(node).visibility === "hidden") return null;
+  return Math.round(r.width) < 44 || Math.round(r.height) < 44 ? (node.textContent.trim() || node.name || node.type) + " " + Math.round(r.width) + "x" + Math.round(r.height) : null;
+}).filter(Boolean)`);
+// Zooming in on focus (iOS) starts below 16px text.
+const smallText = () => evaluate(`[...document.querySelectorAll(".btn, input, select, textarea")].filter((n) => n.offsetParent && !n.matches('[type="radio"], [type="checkbox"]') && parseFloat(getComputedStyle(n).fontSize) < 16).map((n) => (n.textContent.trim() || n.name || n.type) + " " + getComputedStyle(n).fontSize)`);
+const phoneProblems = async (where) => [
+  ...(await smallTargets()).map((t) => `${where}: tap target ${t}`),
+  ...(await smallText()).map((t) => `${where}: text ${t}`),
+];
+const scrollWidth = () => evaluate("document.documentElement.scrollWidth");
+
+// Saves a 40-character unbroken name in Settings and measures the Overview with it.
+async function longNameWidth() {
+  await evaluate(`location.hash = "#/settings"`);
+  await waitFor(`!!document.querySelector("#page input[maxlength]")`, "name field");
+  await evaluate(`(() => { const i = document.querySelector("#page input[maxlength]"); i.value = "${"W".repeat(40)}"; i.form.requestSubmit(); })()`);
+  await evaluate(`location.hash = "#/overview"`);
+  await waitFor(`(document.querySelector(".hero h1") || {}).textContent?.includes("${"W".repeat(40)}")`, "greeting with the long name");
+  await new Promise((r) => setTimeout(r, 400));
+  return scrollWidth();
+}
+
+// Today's two tabs never need the More sheet, so a stand-in with the app's own classes is put on the page.
+const toastOverSheet = () => evaluate(`(() => {
+  const add = (parent, cls) => { const n = document.createElement("div"); n.className = cls; n.textContent = "x"; parent.append(n); return n; };
+  const toast = add(document.getElementById("toasts"), "toast");
+  const made = [add(document.body, "sheet-backdrop"), add(document.body, "sheet"), toast];
+  const r = toast.getBoundingClientRect();
+  const over = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === toast;
+  made.forEach((n) => n.remove());
+  return over;
+})()`);
+
 const sizes = [["phone", 375, 812, true], ["desktop", 1280, 800, false]];
 const themes = ["midnight", "daylight"];
 const pages = ["overview", "settings"];
@@ -104,11 +144,13 @@ for (const theme of themes) {
     await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
     for (const name of pages) {
       errors = [];
+      const problems = [];
       await send("Page.navigate", { url: "about:blank" }); // a hash-only change would not reload the page
       await send("Page.navigate", { url: `${root}/?backend=memory#/${name}` });
       await waitFor(`document.readyState === "complete" && !!document.querySelector('input[name="email"], #page [data-view], #page > *')`, "page load");
       await waitFor(`!!document.querySelector('input[name="email"]') || !!document.querySelector('#tabbar a, .rail a')`, "sign-in or app");
       if (await evaluate(`!!document.querySelector('input[name="email"]')`)) {
+        if (mobile) problems.push(...await phoneProblems("sign-in"));
         await evaluate(`(() => {
           const set = (n, v) => { const i = document.querySelector('input[name="' + n + '"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(i, v); i.dispatchEvent(new Event("input", { bubbles: true })); };
           set("email", "test@example.com"); set("password", "test-only-password");
@@ -124,8 +166,16 @@ for (const theme of themes) {
       const shot = await send("Page.captureScreenshot", { format: "png" });
       const file = `${name}-${sizeName}-${theme}.png`;
       writeFileSync(join(outDir, file), Buffer.from(shot.data, "base64"));
-      const hscroll = m.sw > m.iw;
-      results.push({ page: name, size: `${width}x${height}`, theme, appliedTheme: m.theme, heading: m.title, scrollWidth: m.sw, innerWidth: m.iw, hscroll, errors: [...errors], file });
+      const hscroll = m.sw > width; // not innerWidth, which grows with the content on a phone
+      if (mobile) {
+        problems.push(...await phoneProblems(name));
+        if (await toastOverSheet()) problems.push("a toast covers the More sheet");
+      }
+      if (name === "overview") {
+        const sw = await longNameWidth();
+        if (sw > width) problems.push(`a 40-character name widens the page to ${sw}`);
+      }
+      results.push({ page: name, size: `${width}x${height}`, theme, appliedTheme: m.theme, heading: m.title, scrollWidth: m.sw, innerWidth: m.iw, hscroll, problems, errors: [...errors], file });
     }
   }
 }
@@ -135,10 +185,10 @@ chrome.kill();
 
 let failed = false;
 for (const r of results) {
-  const bad = r.errors.length > 0 || r.hscroll || r.appliedTheme !== r.theme;
+  const bad = r.errors.length > 0 || r.problems.length > 0 || r.hscroll || r.appliedTheme !== r.theme;
   if (bad) failed = true;
   console.log(`${bad ? "FAIL" : "ok  "} ${r.page.padEnd(8)} ${r.size.padEnd(9)} ${r.theme.padEnd(8)} applied=${r.appliedTheme} heading="${r.heading}" scrollWidth=${r.scrollWidth} innerWidth=${r.innerWidth} hscroll=${r.hscroll} consoleErrors=${r.errors.length} -> ${r.file}`);
-  r.errors.forEach((e) => console.log("     " + e));
+  [...r.problems, ...r.errors].forEach((e) => console.log("     " + e));
 }
 console.log(`${results.length} screenshots in ${outDir}; ${failed ? "FAILED" : "all clear"}`);
 process.exit(failed ? 1 : 0);
