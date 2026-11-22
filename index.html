@@ -14,16 +14,8 @@
   <meta name="theme-color" content="#05070c">
   <script id="early-theme">
     // Apply the remembered theme before the first paint so the page never flashes the wrong one.
-    // An old unprefixed value of ours is moved across once (js/core/store.js does the same).
     try {
-      let t = localStorage.getItem("home-theme");
-      const old = t === null ? localStorage.getItem("theme") : null;
-      if (old === '"daylight"' || old === '"midnight"') {
-        t = old;
-        localStorage.setItem("home-theme", old);
-        localStorage.removeItem("theme");
-      }
-      if (t === '"daylight"') {
+      if (localStorage.getItem("home-theme") === '"daylight"') {
         document.documentElement.dataset.theme = "daylight";
         document.querySelector('meta[name="theme-color"]').content = "#e9eef7";
       }

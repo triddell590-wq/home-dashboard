@@ -61,9 +61,7 @@ test("the early theme script reads home-theme", () => {
   eq(runTheme({}, { getItem: () => { throw new Error("blocked"); } }).theme, "midnight");
 });
 
-test("the early theme script moves this app's own old value across once, and nobody else's", () => {
-  eq(runTheme({ theme: '"daylight"' }), { theme: "daylight", colour: "#e9eef7", stored: { "home-theme": '"daylight"' } });
-  eq(runTheme({ theme: '"midnight"' }), { theme: "midnight", colour: "#05070c", stored: { "home-theme": '"midnight"' } });
-  eq(runTheme({ theme: "dark" }).stored, { theme: "dark" });
+test("the early theme script neither reads nor changes another app's unprefixed theme", () => {
+  eq(runTheme({ theme: '"daylight"' }), { theme: "midnight", colour: "#05070c", stored: { theme: '"daylight"' } });
   eq(runTheme({ theme: '"daylight"', "home-theme": '"midnight"' }), { theme: "midnight", colour: "#05070c", stored: { theme: '"daylight"', "home-theme": '"midnight"' } });
 });
