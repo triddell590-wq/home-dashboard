@@ -11,6 +11,7 @@ import { el } from "./core/dom.js";
 import { registerTab, tabs } from "./core/registry.js";
 import * as router from "./core/router.js";
 import { configureScreen, depsFor, endSession } from "./core/signout.js";
+import { guarded, nextStep, reloadOnce } from "./core/startup.js";
 import { startSyncStatus } from "./core/sync-status.js";
 import { buildTabbar } from "./core/tabbar.js";
 import { applySavedTheme, currentTheme, toggleTheme } from "./core/theme.js";
@@ -78,6 +79,7 @@ let closeMore = () => {};
 function showFatal(text, label, onClick = () => location.reload()) {
   rail.hidden = true;
   $("tabbar").hidden = true;
+  page.classList.remove("leaving", "entering"); // a page change that stopped half-way leaves #page transparent
   page.replaceChildren(el("div", { class: "signin-wrap" }, el("div", { class: "card signin static", role: "alert" },
     el("p", {}, text), el("div", { class: "actions" }, el("button", { class: "btn primary", type: "button", onclick: onClick }, label)))));
 }
@@ -102,7 +104,7 @@ function showApp(user) {
   tabbar.hidden = false;
   stopSync = startSyncStatus($("sync"), data());
   started = true;
-  router.start(page, tabs(), (id) => { markRail(id); markBar(id); });
+  return router.start(page, tabs(), (id) => { markRail(id); markBar(id); });
 }
 
 function showSignin() {
@@ -110,6 +112,11 @@ function showSignin() {
   $("tabbar").hidden = true;
   page.replaceChildren();
   stopSignin = mountSignin(page);
+}
+
+function startFailed(err) {
+  console.error(err);
+  showFatal("Couldn't start the app. Check your connection and reload.", "Reload");
 }
 
 applySavedTheme();
@@ -128,16 +135,23 @@ try {
     useData(createFirebaseData(globalThis.firebase, FIREBASE_CONFIG));
   }
 
-  // Until the first callback (Firebase restores a saved session first) neither the form nor the app shows.
-  auth().onChange((user) => {
-    if (user && !started) showApp(user);
+  const freshStart = reloadOnce(() => sessionStorage);
+  // Until the first callback (Firebase restores a saved session first) the page keeps its "Opening…" text.
+  auth().onChange(guarded((user) => {
+    const step = nextStep({ user, started, signinShown: !!stopSignin,
+      // The memory backend forgets everything on a reload, so it never reloads here.
+      claimReload: () => mode === "firebase" && freshStart.claim() });
+    if (step === "reload") location.reload();
+    else if (step === "app") {
+      if (!stopSignin) freshStart.clear(); // the session survived the reload
+      return showApp(user);
+    }
     // Signed out elsewhere: clear this device's offline copy the same way Sign out does, then start clean.
-    else if (!user && started) endSession(depsFor({ data, auth }));
-    else if (!user && !stopSignin) showSignin();
-  });
+    else if (step === "end") return endSession(depsFor({ data, auth }));
+    else if (step === "signin") showSignin();
+  }, startFailed));
 } catch (err) {
-  console.error(err);
-  showFatal("Couldn't start the app. Check your connection and reload.", "Reload");
+  startFailed(err);
 }
 
 /** Keeps an offline copy of the app (sw.js); see shouldRegisterWorker for when. */

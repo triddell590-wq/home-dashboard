@@ -25,6 +25,7 @@ var FILES = [
   "./js/core/registry.js",
   "./js/core/router.js",
   "./js/core/signout.js",
+  "./js/core/startup.js",
   "./js/core/store.js",
   "./js/core/sync-status.js",
   "./js/core/tabbar.js",

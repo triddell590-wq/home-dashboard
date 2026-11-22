@@ -33,6 +33,7 @@ export function go(view, arg = null, query = {}) {
   location.hash = hashFor(view, arg, query);
 }
 
+/** Shows the first page; the returned promise rejects if that page cannot be built. */
 export function start(container, tabs, onChange = () => {}) {
   for (const tab of tabs) KNOWN.add(tab.id);
   state = { container, tabs, onChange, unmount: null, token: 0 };
@@ -43,7 +44,7 @@ export function start(container, tabs, onChange = () => {}) {
       history.replaceState(null, "", saved);
     }
   }
-  show();
+  return show();
 }
 
 /** Leave the page empty and stop reacting to the address bar (used when the session ends). */

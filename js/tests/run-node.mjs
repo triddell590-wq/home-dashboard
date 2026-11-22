@@ -11,7 +11,9 @@ import "./tabbar.test.js";
 import "./sync.test.js";
 import "./views.test.js";
 import "./signout.test.js";
+import "./startup.test.js";
 import "./sw.test.js";
+import "./page.test.js";
 
 const result = await run();
 for (const f of result.failures) console.log(`FAIL ${f.name}\n      ${f.error}`);
