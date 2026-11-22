@@ -14,7 +14,7 @@ import { configureScreen, depsFor, endSession } from "./core/signout.js";
 import { startSyncStatus } from "./core/sync-status.js";
 import { buildTabbar } from "./core/tabbar.js";
 import { applySavedTheme, currentTheme, toggleTheme } from "./core/theme.js";
-import { applyUpdate, watchForUpdate } from "./core/update.js";
+import { applyUpdate, shouldRegisterWorker, watchForUpdate } from "./core/update.js";
 import * as overview from "./views/overview.js";
 import * as settings from "./views/settings.js";
 import { mountSignin } from "./views/signin.js";
@@ -140,11 +140,10 @@ try {
   showFatal("Couldn't start the app. Check your connection and reload.", "Reload");
 }
 
-/** Keeps an offline copy of the app (sw.js). Only on https or localhost, and never in the ?backend=memory test mode. */
+/** Keeps an offline copy of the app (sw.js); see shouldRegisterWorker for when. */
 function registerWorker() {
   if (!("serviceWorker" in navigator)) return;
-  const secure = location.protocol === "https:" || ["localhost", "127.0.0.1"].includes(location.hostname);
-  if (!secure || new URLSearchParams(location.search).get("backend") === "memory") return;
+  if (!shouldRegisterWorker(location)) return;
   navigator.serviceWorker.register("./sw.js").then((registration) => {
     watchForUpdate(registration, () => {
       const bar = $("update");

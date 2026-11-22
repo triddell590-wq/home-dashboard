@@ -63,9 +63,10 @@ a { color: var(--accent); }
   font: 11px var(--mono); letter-spacing: .04em; background: var(--rail-bg-open); border: 1px solid var(--edge-strong); box-shadow: var(--shadow);
 }
 #band, #update { left: 50%; transform: translateX(-50%); color: var(--warn); }
-#update { color: var(--text); display: flex; align-items: center; gap: 10px; padding-right: 4px; }
+#band:not([hidden]) ~ #update { top: calc(max(10px, env(safe-area-inset-top)) + 36px); }
+#update { color: var(--text); display: flex; align-items: center; gap: 10px; padding: 0 4px 0 14px; }
 #update[hidden] { display: none; }
-#update button { font: inherit; letter-spacing: inherit; color: var(--button-text); background: var(--button); border: 0; border-radius: 99px; padding: 6px 14px; min-height: 28px; cursor: pointer; }
+#update button { font: inherit; letter-spacing: inherit; color: var(--button-text); background: var(--button); border: 0; border-radius: 99px; padding: 0 18px; min-height: 44px; min-width: 44px; cursor: pointer; }
 #sync { right: 14px; color: var(--muted); }
 .signin-wrap { min-height: 70vh; display: grid; place-items: center; margin-left: calc(-1 * var(--rail-closed)); }
 .signin { width: min(100%, 420px); }

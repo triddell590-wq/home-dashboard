@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
-import { applyUpdate, checkForUpdate, watchForUpdate } from "../core/update.js";
+import { applyUpdate, checkForUpdate, shouldRegisterWorker, watchForUpdate } from "../core/update.js";
 import { eq, ok, test } from "./harness.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -28,7 +28,8 @@ function loadWorker({ cacheEntries = {}, fetchImpl = async () => { throw new Err
     keys: async () => ["home-dev", "home-old", "other"],
     delete: async (n) => { calls.deleted.push(n); return true; },
   };
-  const context = vm.createContext({ self, caches, fetch: fetchImpl, Promise });
+  class Request { constructor(url, init = {}) { this.url = url; this.cache = init.cache; } }
+  const context = vm.createContext({ self, caches, fetch: fetchImpl, Promise, Request });
   vm.runInContext(fs.readFileSync(path.join(root, "sw.js"), "utf8"), context, { filename: "sw.js" });
   return { context, handlers, calls, self };
 }
@@ -80,7 +81,12 @@ test("install caches FILES; it does not skip waiting", async () => {
   let waited;
   w.handlers.install({ waitUntil: (p) => { waited = p; } });
   await waited;
-  eq(w.calls.added, Array.from(w.context.FILES));
+  eq(w.calls.added.length, w.context.FILES.length);
+  w.calls.added.forEach((r, i) => {
+    const f = w.context.FILES[i];
+    eq(r.url, f === "./" ? SCOPE : SCOPE + f.slice(2));
+    eq(r.cache, "reload");
+  });
   eq(w.calls.skipWaiting, 0);
 });
 
@@ -209,4 +215,22 @@ test("checkForUpdate asks the browser to look, and reports whether a new version
   const installing = fakeRegistration({ update: async () => { installing.installing = worker; setTimeout(() => { installing.waiting = worker; worker.change("installed"); }, 5); } });
   eq(await checkForUpdate(installing), true);
   eq(await checkForUpdate(undefined), false);
+});
+
+test("applyUpdate with nothing waiting (another tab already updated) reloads straight away", () => {
+  let reloads = 0;
+  applyUpdate(fakeRegistration(), fakeContainer({}), () => reloads++);
+  eq(reloads, 1);
+});
+
+test("shouldRegisterWorker: https yes, local only with ?sw=1, never with ?backend=memory", () => {
+  const r = (protocol, hostname, search = "") => shouldRegisterWorker({ protocol, hostname, search });
+  eq(r("https:", "x.github.io"), true);
+  eq(r("https:", "x.github.io", "?backend=memory"), false);
+  eq(r("http:", "127.0.0.1"), false);
+  eq(r("http:", "localhost", "?sw=1"), true);
+  eq(r("http:", "127.0.0.1", "?sw=1"), true);
+  eq(r("http:", "example.com"), false);
+  eq(r("http:", "example.com", "?sw=1"), false);
+  eq(r("http:", "127.0.0.1", "?sw=1&backend=memory"), false);
 });

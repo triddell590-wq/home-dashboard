@@ -27,15 +27,24 @@ export function watchForUpdate(registration, show, container = serviceWorkers())
   registration.addEventListener("updatefound", () => follow(registration.installing));
 }
 
-/** Tells the waiting worker to take over, then reloads once when it has. */
+/** Whether to register the worker: https, or localhost only with ?sw=1; never in the ?backend=memory test mode. */
+export function shouldRegisterWorker({ protocol, hostname, search }) {
+  const params = new URLSearchParams(search);
+  if (params.get("backend") === "memory") return false;
+  if (protocol === "https:") return true;
+  return ["localhost", "127.0.0.1"].includes(hostname) && params.get("sw") === "1";
+}
+
+/** Tells the waiting worker to take over, then reloads once when it has. With nothing waiting (another tab already updated) it just reloads. */
 export function applyUpdate(registration, container = serviceWorkers(), reload = () => location.reload()) {
+  if (!registration.waiting) { reload(); return; }
   let reloaded = false;
   container.addEventListener("controllerchange", () => {
     if (reloaded) return;
     reloaded = true;
     reload();
   });
-  registration.waiting?.postMessage({ type: "skip-waiting" });
+  registration.waiting.postMessage({ type: "skip-waiting" });
 }
 
 /** Asks the server for a newer version. Resolves to whether one is now waiting. */

@@ -68,7 +68,12 @@ async function answer(request) {
 }
 
 self.addEventListener("install", function (event) {
-  event.waitUntil(caches.open(CACHE).then(function (cache) { return cache.addAll(FILES); }));
+  // cache: "reload" skips the browser's HTTP cache, so a new version never stores the previous version's files.
+  var scope = self.registration.scope;
+  var requests = FILES.map(function (file) {
+    return new Request(file === "./" ? scope : scope + file.replace(/^\.\//, ""), { cache: "reload" });
+  });
+  event.waitUntil(caches.open(CACHE).then(function (cache) { return cache.addAll(requests); }));
 });
 
 self.addEventListener("activate", function (event) {
