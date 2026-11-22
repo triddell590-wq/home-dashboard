@@ -1,0 +1,75 @@
+# Tests every push to main, then publishes to GitHub Pages only if every test passes.
+name: Test and publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      # firebase-tools 15 needs Java 21 for the Firestore emulator.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:helpers
+      # CI=1 is set by GitHub, so this step fails if Java is missing instead of skipping.
+      - name: Rules tests (Firestore emulator)
+        run: |
+          set -o pipefail
+          npm run test:rules 2>&1 | tee rules-output.txt
+          if grep -q "Java not found" rules-output.txt; then echo "Rules tests were skipped"; exit 1; fi
+          {
+            echo "### Rules tests"
+            echo '```'
+            grep -E "^# (tests|pass|fail)" rules-output.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/configure-pages@v6
+      - name: Assemble the site and stamp the version
+        run: |
+          set -euo pipefail
+          SHA="${GITHUB_SHA::7}"
+          mkdir _site
+          rsync -a ./ _site/ \
+            --exclude=_site --exclude=.git --exclude=.github --exclude=node_modules \
+            --exclude=tests --exclude=tools --exclude='package*.json' \
+            --exclude=firebase.json --exclude=firestore.rules --exclude='*.md'
+          sed -i "s/VERSION = \"dev\"/VERSION = \"$SHA\"/" _site/js/version.js _site/sw.js
+          if grep -n 'VERSION = "dev"' _site/js/version.js _site/sw.js; then echo "A dev version is left"; exit 1; fi
+          grep -q "VERSION = \"$SHA\"" _site/js/version.js
+          grep -q "VERSION = \"$SHA\"" _site/sw.js
+          echo "Stamped version $SHA"
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v5

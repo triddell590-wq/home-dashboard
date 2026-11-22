@@ -1,8 +1,27 @@
 # Home dashboard
 
-A personal home dashboard for phone and Mac: a small web app made of plain ES modules with no build step, where each tab and card registers itself with the shell. It is meant to be served as static files (GitHub Pages) and backed by Firebase.
+A personal home dashboard for phone and Mac: a small web app made of plain ES modules with no build step, where each tab and card registers itself with the shell. It is published to GitHub Pages and backed by Firebase.
+
+To put it online, follow [SETUP.md](SETUP.md).
+
+## Run it locally
+
+Serve the folder and open it with the test backend, which saves nothing:
+
+```
+python3 -m http.server 8790 --bind 127.0.0.1
+```
+
+Then open `http://127.0.0.1:8790/?backend=memory` and sign in as `test@example.com` with `test-only-password`.
 
 ## Tests
 
-- Node (no browser needed): `node js/tests/run-node.mjs`
-- Browser (includes the DOM tests): serve the folder, e.g. `python3 -m http.server`, then open `http://localhost:8000/tests.html`
+- Page tests (Node, no browser): `npm test`
+- Page tests in the browser, including the DOM tests: serve the folder as above and open `/tests.html`
+- Rules tests (Firestore emulator, needs Java): `npm run test:rules`. Without Java it says so and passes; GitHub runs them for real. First run `npm ci`.
+- Rules helper tests: `npm run test:helpers`
+- Browser check, with a local server running: `node tools/browser-check.mjs http://127.0.0.1:8790 <screenshot-folder>`. It drives headless Chrome (Playwright's `chromium_headless_shell` if installed, otherwise Google Chrome; or set `CHROME`), checks Overview and Settings at 375x812 and 1280x800 in both themes, saves 8 screenshots, and exits 1 on a console error or sideways scrolling.
+
+## Publishing
+
+Every push to `main` runs the tests in `.github/workflows/publish.yml`, then publishes to GitHub Pages only if they all pass.
