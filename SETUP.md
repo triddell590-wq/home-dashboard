@@ -25,7 +25,6 @@ Until you finish, the app runs in test mode and shows "Test mode — nothing is 
    - Ask Claude to commit the same edited `firestore.rules` file, because the automatic tests read it. The rules use `rules_version = '2'` and allow only your UID; everyone else, signed in or not, is turned away.
 6. **Switch off sign-up.** In Authentication open **Settings → User actions** and turn off **Enable create (sign-up)**. Nobody else can then make an account.
 7. **Allow your website address.** In Authentication open **Settings → Authorized domains**, choose **Add domain**, and enter `triddell590-wq.github.io`.
-
 8. **Switch to the new settings.** Once Claude has committed and published the settings, open the app wherever you already use it and tap **Update** when it says "New version ready". (If it doesn't appear, go to Settings and choose **Check for update**.) The "Test mode" note goes away, and you sign in with the email and password from step 4.
 9. **Put it on your phone.** Open `https://triddell590-wq.github.io/home-dashboard/` in Safari, tap **Share**, then **Add to Home Screen**. Open it from the new icon and sign in once.
 
