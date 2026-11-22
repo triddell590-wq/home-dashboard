@@ -15,7 +15,7 @@ import { guarded, nextStep, reloadOnce } from "./core/startup.js";
 import { startSyncStatus } from "./core/sync-status.js";
 import { buildTabbar } from "./core/tabbar.js";
 import { applySavedTheme, currentTheme, toggleTheme } from "./core/theme.js";
-import { applyUpdate, shouldRegisterWorker, watchForUpdate } from "./core/update.js";
+import { applyUpdate, checkWhenVisible, shouldRegisterWorker, watchForUpdate } from "./core/update.js";
 import * as overview from "./views/overview.js";
 import * as settings from "./views/settings.js";
 import { mountSignin } from "./views/signin.js";
@@ -165,6 +165,7 @@ function registerWorker() {
         el("button", { type: "button", onclick: () => applyUpdate(registration) }, "Update"));
       bar.hidden = false;
     });
+    checkWhenVisible(registration);
   }).catch((err) => console.error("Offline copy unavailable", err));
 }
 registerWorker();

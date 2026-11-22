@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
-import { applyUpdate, checkForUpdate, shouldRegisterWorker, watchForUpdate } from "../core/update.js";
+import { applyUpdate, checkForUpdate, checkWhenVisible, shouldRegisterWorker, watchForUpdate } from "../core/update.js";
 import { eq, ok, test } from "./harness.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -229,6 +229,33 @@ test("applyUpdate with nothing waiting (another tab already updated) reloads str
   let reloads = 0;
   applyUpdate(fakeRegistration(), fakeContainer({}), () => reloads++);
   eq(reloads, 1);
+});
+
+test("checkWhenVisible looks for a new version each time the page comes into view, one look at a time, and never throws", async () => {
+  let handler = null;
+  const doc = { visibilityState: "visible", addEventListener: (t, fn) => { handler = fn; }, removeEventListener: () => { handler = null; } };
+  let looks = 0, finish = null;
+  const reg = fakeRegistration({ update: () => { looks++; return new Promise((resolve, reject) => { finish = { resolve, reject }; }); } });
+  const stop = checkWhenVisible(reg, doc);
+  eq(looks, 0);
+  handler();
+  handler();
+  eq(looks, 1);
+  finish.reject(new Error("offline"));
+  await new Promise((r) => setTimeout(r, 0));
+  handler();
+  eq(looks, 2);
+  finish.resolve();
+  await new Promise((r) => setTimeout(r, 0));
+  doc.visibilityState = "hidden";
+  handler();
+  eq(looks, 2);
+  stop();
+  eq(handler, null);
+  // Browsers without update(), or one that throws straight away.
+  doc.visibilityState = "visible";
+  for (const broken of [undefined, fakeRegistration(), fakeRegistration({ update() { throw new Error("gone"); } })]) { checkWhenVisible(broken, doc); handler(); }
+  await new Promise((r) => setTimeout(r, 0));
 });
 
 test("shouldRegisterWorker: https yes, local only with ?sw=1, never with ?backend=memory", () => {

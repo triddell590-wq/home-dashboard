@@ -4,6 +4,7 @@ import { mountCard } from "../core/card.js";
 import { data } from "../core/data.js";
 import { el, greeting, localDate } from "../core/dom.js";
 import { cards, dayParts } from "../core/registry.js";
+import { onVisible } from "../core/visible.js";
 import { cleanName } from "./settings.js";
 
 export const tab = { id: "overview", label: "Overview", order: 10, mount };
@@ -23,12 +24,24 @@ export function overviewEmpty(cardCount) {
     "Until then, they're in the dashboard on your Mac."];
 }
 
+/** Shows the date and greeting now, on a new name, and whenever the page comes back into view: an app left open overnight must not show yesterday. */
+export function keepDayFresh({ show, clock = () => new Date(), doc = document }) {
+  let name = "";
+  const refresh = () => {
+    const now = clock();
+    show({ date: localDate(now), greeting: greetingText(name, now) });
+  };
+  refresh();
+  return { setName(text) { name = text; refresh(); }, stop: onVisible(refresh, doc) };
+}
+
 function mount(container) {
   const now = new Date();
   let alive = true;
-  const greetingLine = el("h1", {}, greetingText("", now));
-  const banner = el("div", { class: "banner" },
-    el("div", { class: "eyebrow" }, el("span", {}, localDate(now))), greetingLine);
+  const dateLine = el("span", {});
+  const greetingLine = el("h1", {});
+  const day = keepDayFresh({ show: ({ date, greeting }) => { dateLine.textContent = date; greetingLine.textContent = greeting; } });
+  const banner = el("div", { class: "banner" }, el("div", { class: "eyebrow" }, dateLine), greetingLine);
   const grid = el("div", { class: "grid" });
   container.append(el("section", { class: "hero" }, banner), grid);
 
@@ -46,7 +59,7 @@ function mount(container) {
   for (const card of mounted) card.refresh();
 
   const unwatch = data().watch("settings/profile", (profile) => {
-    if (alive) greetingLine.textContent = greetingText(profile && profile.name, new Date());
+    if (alive) day.setName(profile && profile.name);
   });
 
   Promise.all(dayParts().map((part) => Promise.resolve(part.load(now)).catch(() => null))).then((phrases) => {
@@ -56,6 +69,7 @@ function mount(container) {
 
   return () => {
     alive = false;
+    day.stop();
     if (typeof unwatch === "function") unwatch();
   };
 }

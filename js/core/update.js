@@ -1,4 +1,5 @@
 // Finding, announcing and applying a new version of the app (the worker in sw.js does the caching).
+import { onVisible } from "./visible.js";
 
 const controllerOf = (container) => container?.controller ?? null;
 const serviceWorkers = () => globalThis.navigator?.serviceWorker;
@@ -45,6 +46,22 @@ export function applyUpdate(registration, container = serviceWorkers(), reload =
     reload();
   });
   registration.waiting.postMessage({ type: "skip-waiting" });
+}
+
+/** Looks for a newer version whenever the page comes back into view; watchForUpdate announces one if found. Being offline is not an error here. */
+export function checkWhenVisible(registration, doc = document) {
+  let looking = false;
+  return onVisible(async () => {
+    if (looking || !registration?.update) return;
+    looking = true;
+    try {
+      await registration.update();
+    } catch {
+      /* offline, or the worker has gone: the next look will do */
+    } finally {
+      looking = false;
+    }
+  }, doc);
 }
 
 /** Asks the server for a newer version. Resolves to whether one is now waiting; rejects when one was found but failed to install. */

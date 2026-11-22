@@ -54,3 +54,34 @@ test("summaryText joins the phrases and is null when there are none", async () =
   eq(summaryText([]), null);
   eq(summaryText([null, ""]), null);
 });
+
+// A page that can be hidden and shown, with no real document.
+function fakeDocument() {
+  const handlers = new Set();
+  return {
+    visibilityState: "visible",
+    addEventListener: (type, fn) => { if (type === "visibilitychange") handlers.add(fn); },
+    removeEventListener: (type, fn) => handlers.delete(fn),
+    become(state) { this.visibilityState = state; for (const fn of [...handlers]) fn(); },
+    listeners: () => handlers.size,
+  };
+}
+
+test("keepDayFresh shows the date and greeting now, and again each time the page comes back into view", async () => {
+  const { keepDayFresh } = await import("../views/overview.js");
+  const doc = fakeDocument();
+  let now = new Date(Date.UTC(2026, 10, 22, 8, 0));
+  const seen = [];
+  const day = keepDayFresh({ show: (lines) => seen.push(lines), clock: () => now, doc });
+  eq(seen, [{ date: "Sunday 22 November", greeting: "Good morning" }]);
+  day.setName("Tom");
+  eq(seen[1], { date: "Sunday 22 November", greeting: "Good morning, Tom" });
+  now = new Date(Date.UTC(2026, 10, 23, 19, 0));
+  doc.become("hidden");
+  eq(seen.length, 2);
+  doc.become("visible");
+  eq(seen[2], { date: "Monday 23 November", greeting: "Good evening, Tom" });
+  day.stop();
+  doc.become("visible");
+  eq([seen.length, doc.listeners()], [3, 0]);
+});
