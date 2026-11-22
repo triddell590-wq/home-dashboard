@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page tests</title>
+  <style>body { font: 14px/1.5 -apple-system, sans-serif; margin: 24px; } #sandbox { position: absolute; left: -9999px; }</style>
+</head>
+<body>
+  <h1>Page tests</h1>
+  <pre id="results">Running…</pre>
+  <div id="sandbox"></div>
+  <script type="module">
+    import { run } from "./js/tests/harness.js";
+    import "./js/tests/dom.test.js";
+    import "./js/tests/router.test.js";
+    import "./js/tests/registry.test.js";
+    import "./js/tests/card.test.js";
+    import "./js/tests/theme.test.js";
+
+    const result = await run();
+    const lines = result.failures.map((f) => `FAIL ${f.name}\n      ${f.error}`);
+    lines.push(`${result.passed} of ${result.total} passed`);
+    document.getElementById("results").textContent = lines.join("\n");
+    document.title = result.failures.length ? `FAIL ${result.failures.length} of ${result.total}` : `PASS ${result.total}`;
+  </script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+/* Design tokens for both themes (from docs/design/2026-11-12-dashboard-mockup-midnight-glass.html). */
+:root {
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", sans-serif;
+  --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  --radius: 20px;
+  --radius-small: 12px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --rail-closed: 72px;
+  --rail-open: 220px;
+  --gap: 18px;
+  color-scheme: dark;
+}
+
+:root, :root[data-theme="midnight"] {
+  --bg: #05070c;
+  --text: #eef2f8;
+  --muted: #949eb0;
+  --faint: #6b7588;
+  --glass: rgba(255, 255, 255, 0.055);
+  --glass-strong: rgba(255, 255, 255, 0.09);
+  --edge: rgba(255, 255, 255, 0.10);
+  --edge-strong: rgba(255, 255, 255, 0.18);
+  --accent: #5b9dff;
+  --accent-glow: rgba(91, 157, 255, 0.35);
+  --up: #3ddc97;
+  --down: #ff6b6b;
+  --warn: #f5b14c;
+  --button: #ffffff;
+  --button-text: #05070c;
+  --rail-bg-open: rgba(12, 16, 26, 0.9);
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  --input: rgba(255, 255, 255, 0.06);
+  --ridge-far: #121a28;
+  --ridge-near: #0a0f18;
+  --mist: rgba(150, 170, 200, 0.07);
+  --glow-two: rgba(61, 220, 151, 0.16);
+  --chart-grid: rgba(255, 255, 255, 0.06);
+}
+
+:root[data-theme="daylight"] {
+  color-scheme: light;
+  --bg: #e9eef7;
+  --text: #0d1524;
+  --muted: #4f5a6c;
+  --faint: #737d8e;
+  --glass: rgba(255, 255, 255, 0.55);
+  --glass-strong: rgba(255, 255, 255, 0.75);
+  --edge: rgba(255, 255, 255, 0.85);
+  --edge-strong: rgba(255, 255, 255, 1);
+  --accent: #2f6bff;
+  --accent-glow: rgba(47, 107, 255, 0.28);
+  --up: #0b8a55;
+  --down: #d93d42;
+  --warn: #b26b00;
+  --button: #0d1524;
+  --button-text: #ffffff;
+  --rail-bg-open: rgba(255, 255, 255, 0.9);
+  --shadow: 0 20px 50px rgba(30, 60, 120, 0.12);
+  --input: rgba(255, 255, 255, 0.7);
+  --ridge-far: #d3dcec;
+  --ridge-near: #dfe6f2;
+  --mist: rgba(255, 255, 255, 0.6);
+  --glow-two: rgba(120, 170, 255, 0.35);
+  --chart-grid: rgba(13, 21, 36, 0.07);
+}

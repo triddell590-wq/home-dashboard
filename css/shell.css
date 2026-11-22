@@ -1,0 +1,69 @@
+/* The frame: background atmosphere, floating sidebar, page transitions, notices. */
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  background: var(--bg); color: var(--text); font: 14px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  transition: background-color .3s var(--ease), color .3s var(--ease);
+}
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.atmosphere { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.atmosphere svg { position: absolute; left: 0; right: 0; top: 0; width: 100%; height: 70vh; }
+.atmosphere .ridge-far { fill: var(--ridge-far); transition: fill .3s; }
+.atmosphere .ridge-near { fill: var(--ridge-near); transition: fill .3s; }
+.atmosphere .mist { fill: var(--mist); }
+.glow { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55; }
+.glow.one { width: 620px; height: 620px; left: -120px; top: 260px; background: var(--accent-glow); }
+.glow.two { width: 520px; height: 520px; right: -140px; top: -120px; background: var(--glow-two); }
+.atmosphere .fade { position: absolute; left: 0; right: 0; top: 40vh; height: 32vh; background: linear-gradient(to bottom, transparent, var(--bg)); }
+
+/* floating sidebar that widens on hover or keyboard focus to show each tab's name */
+.rail {
+  position: fixed; left: 18px; top: 50%; transform: translateY(-50%); z-index: 20;
+  display: flex; flex-direction: column; gap: 6px; padding: 10px; width: var(--rail-closed); overflow: hidden;
+  background: var(--glass); border: 1px solid var(--edge); border-radius: 22px;
+  backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%);
+  box-shadow: var(--shadow); transition: width .24s var(--ease), background .24s, box-shadow .24s;
+}
+.rail:hover, .rail:focus-within { width: var(--rail-open); background: var(--rail-bg-open); box-shadow: var(--shadow), 0 20px 60px var(--accent-glow); }
+.rail .logo, .rail a, .rail button {
+  display: flex; align-items: center; gap: 14px; height: 46px; padding: 0 13px; border-radius: 14px; white-space: nowrap;
+  font: inherit; border: 0; background: none; cursor: pointer; text-align: left; width: 100%;
+}
+.rail .logo { margin-bottom: 10px; background: var(--button); color: var(--button-text); font: 700 13px var(--mono); padding: 0 11px; cursor: default; }
+.rail .logo b { width: 26px; text-align: center; flex: none; }
+.rail a, .rail button { color: var(--muted); text-decoration: none; transition: color .2s, background .2s; }
+.rail svg { width: 20px; height: 20px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.rail a:hover, .rail button:hover { color: var(--text); background: var(--glass-strong); }
+.rail a.active { color: var(--button-text); background: var(--button); }
+.rail span { font-size: 14px; letter-spacing: -.01em; opacity: 0; transform: translateX(-8px); transition: opacity .2s, transform .24s var(--ease); }
+.rail .logo span { font: 600 13px var(--font); }
+.rail:hover span, .rail:focus-within span { opacity: 1; transform: none; transition-delay: .05s; }
+.rail .spacer { flex: 1; min-height: 14px; }
+
+/* page container and its cross-fade */
+#page { position: relative; z-index: 1; padding: 56px 48px 80px calc(var(--rail-closed) + 48px); max-width: 1480px; margin: 0 auto; transition: opacity .2s var(--ease); }
+#page.leaving, #page.entering { opacity: 0; }
+
+#notice {
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 40; display: flex; gap: 12px; align-items: center;
+  padding: 10px 14px 10px 18px; border-radius: 14px; background: var(--rail-bg-open); border: 1px solid var(--edge-strong);
+  box-shadow: var(--shadow); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+}
+#notice[hidden] { display: none; }
+#toasts { position: fixed; right: 22px; bottom: 44px; z-index: 40; display: grid; gap: 8px; }
+.toast { padding: 10px 16px; border-radius: 12px; background: var(--rail-bg-open); border: 1px solid var(--edge-strong); box-shadow: var(--shadow); animation: rise .3s var(--ease); }
+.footnote { position: relative; z-index: 1; text-align: center; color: var(--faint); font: 11px var(--mono); padding: 0 0 18px calc(var(--rail-closed) + 20px); }
+
+@media (max-width: 900px) {
+  #page { padding: 32px 16px 96px 16px; }
+  .rail { top: auto; bottom: 12px; left: 50%; transform: translateX(-50%); flex-direction: row; width: auto; max-width: calc(100vw - 24px); overflow-x: auto; }
+  .rail:hover, .rail:focus-within { width: auto; }
+  .rail .logo, .rail .spacer, .rail span { display: none; }
+  #rail-tabs, #rail-foot { display: contents; }
+  .rail a, .rail button { width: auto; }
+  .footnote { padding: 0 16px 90px; }
+}
