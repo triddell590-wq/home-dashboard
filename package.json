@@ -1,0 +1,16 @@
+{
+  "name": "home-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Home dashboard. Dev-only tooling: Firestore rules tests.",
+  "scripts": {
+    "test": "node js/tests/run-node.mjs",
+    "test:rules": "node tests/rules/run.mjs",
+    "test:helpers": "node tests/rules/helpers.test.mjs"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "3.0.4",
+    "firebase": "10.14.1",
+    "firebase-tools": "15.35.0"
+  }
+}

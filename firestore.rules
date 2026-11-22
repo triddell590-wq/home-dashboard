@@ -1,0 +1,14 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Only Tom's account. Replace the placeholder with his Firebase Auth UID.
+    function ownerUid() { return "REPLACE_WITH_YOUR_UID"; }
+
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == uid
+                         && uid == ownerUid();
+    }
+  }
+}
