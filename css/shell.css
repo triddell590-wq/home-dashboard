@@ -18,7 +18,7 @@ a { color: var(--accent); }
 .glow { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55; }
 .glow.one { width: 620px; height: 620px; left: -120px; top: 260px; background: var(--accent-glow); }
 .glow.two { width: 520px; height: 520px; right: -140px; top: -120px; background: var(--glow-two); }
-.atmosphere .fade { position: absolute; left: 0; right: 0; top: 40vh; height: 32vh; background: linear-gradient(to bottom, transparent, var(--bg)); }
+.atmosphere .fade { position: absolute; left: 0; right: 0; top: 40vh; bottom: 0; background: linear-gradient(to bottom, transparent, var(--bg) 32vh); }
 
 /* floating sidebar that widens on hover or keyboard focus to show each tab's name */
 .rail {
@@ -58,12 +58,45 @@ a { color: var(--accent); }
 .toast { padding: 10px 16px; border-radius: 12px; background: var(--rail-bg-open); border: 1px solid var(--edge-strong); box-shadow: var(--shadow); animation: rise .3s var(--ease); }
 .footnote { position: relative; z-index: 1; text-align: center; color: var(--faint); font: 11px var(--mono); padding: 0 0 18px calc(var(--rail-closed) + 20px); }
 
-@media (max-width: 900px) {
-  #page { padding: 32px 16px 96px 16px; }
-  .rail { top: auto; bottom: 12px; left: 50%; transform: translateX(-50%); flex-direction: row; width: auto; max-width: calc(100vw - 24px); overflow-x: auto; }
-  .rail:hover, .rail:focus-within { width: auto; }
-  .rail .logo, .rail .spacer, .rail span { display: none; }
-  #rail-tabs, #rail-foot { display: contents; }
-  .rail a, .rail button { width: auto; }
-  .footnote { padding: 0 16px 90px; }
+#band, #sync {
+  position: fixed; top: max(10px, env(safe-area-inset-top)); z-index: 45; padding: 4px 12px; white-space: nowrap; border-radius: 99px;
+  font: 11px var(--mono); letter-spacing: .04em; background: var(--rail-bg-open); border: 1px solid var(--edge-strong); box-shadow: var(--shadow);
+}
+#band { left: 50%; transform: translateX(-50%); color: var(--warn); }
+#sync { right: 14px; color: var(--muted); }
+.signin-wrap { min-height: 70vh; display: grid; place-items: center; margin-left: calc(-1 * var(--rail-closed)); }
+.signin { width: min(100%, 420px); }
+.signin .actions, .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.choice { display: flex; flex-direction: row; gap: 8px; align-items: center; font-size: 14px; color: var(--text); min-height: 44px; }
+
+.tabbar, .sheet, .sheet-backdrop { display: none; }
+
+/* phones: the sidebar gives way to a tab bar along the bottom */
+@media (max-width: 699px) {
+  .rail { display: none; }
+  #page { padding: calc(52px + env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom)) 16px; }
+  .signin-wrap { margin-left: 0; }
+  #toasts { right: 16px; left: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); }
+  #page .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #page .grid > * { grid-column: 1 / -1; }
+  #page .grid > .card.small { grid-column: span 1; }
+  .tabbar {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; justify-content: space-around; gap: 4px;
+    padding: 8px 8px max(8px, env(safe-area-inset-bottom));
+    background: var(--rail-bg-open); border-top: 1px solid var(--edge);
+    backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%);
+  }
+  .tabbar a, .tabbar button {
+    flex: 1 1 0; min-width: 44px; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    padding: 4px 2px; border: 0; border-radius: 12px; background: none; color: var(--muted); font: 11px var(--font); text-decoration: none; cursor: pointer;
+  }
+  .tabbar svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .tabbar a.active, .tabbar button.active { color: var(--text); background: var(--glass-strong); }
+  .sheet-backdrop:not([hidden]) { display: block; position: fixed; inset: 0; z-index: 31; background: rgba(0, 0, 0, .4); }
+  .sheet:not([hidden]) {
+    display: grid; gap: 4px; position: fixed; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 32; padding: 8px;
+    background: var(--rail-bg-open); border: 1px solid var(--edge-strong); border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  .sheet a { display: flex; flex-direction: row; justify-content: flex-start; gap: 12px; min-height: 48px; padding: 0 14px; }
+  #sync { top: auto; bottom: calc(76px + env(safe-area-inset-bottom)); right: 12px; }
 }

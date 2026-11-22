@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en" data-theme="midnight">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Home Dashboard</title>
+  <link rel="icon" href="data:,">
+  <script>
+    // Apply the remembered theme before the first paint so the page never flashes the wrong one.
+    try { const t = JSON.parse(localStorage.getItem("theme")); if (t === "daylight") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/shell.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/views.css">
+  <script defer src="vendor/firebase-app-compat.js"></script>
+  <script defer src="vendor/firebase-auth-compat.js"></script>
+  <script defer src="vendor/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true">
+    <div class="glow one"></div><div class="glow two"></div>
+    <svg viewBox="0 0 1440 640" preserveAspectRatio="xMidYMid slice">
+      <path class="ridge-far" d="M0 420 L120 360 L230 395 L360 300 L470 350 L600 250 L720 330 L830 280 L960 340 L1080 230 L1190 310 L1300 270 L1440 330 L1440 640 L0 640Z"/>
+      <ellipse class="mist" cx="520" cy="380" rx="520" ry="40"/>
+      <ellipse class="mist" cx="1100" cy="350" rx="420" ry="34"/>
+      <path class="ridge-near" d="M0 500 L160 430 L300 470 L420 410 L560 470 L700 420 L860 480 L1000 430 L1150 480 L1300 440 L1440 470 L1440 640 L0 640Z"/>
+    </svg>
+    <div class="fade"></div>
+  </div>
+
+  <nav class="rail" aria-label="Main" hidden>
+    <div class="logo"><b>HD</b><span>Home Dashboard</span></div>
+    <div id="rail-tabs"></div>
+    <div class="spacer"></div>
+    <div id="rail-foot"></div>
+  </nav>
+
+  <div id="band" role="status" hidden></div>
+  <div id="sync" role="status" hidden></div>
+
+  <main id="page" tabindex="-1"></main>
+
+  <nav class="tabbar" id="tabbar" aria-label="Main" hidden></nav>
+  <div id="toasts" aria-live="polite"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

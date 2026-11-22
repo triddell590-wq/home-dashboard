@@ -7,6 +7,9 @@ import "./registry.test.js";
 import "./data.test.js";
 import "./auth.test.js";
 import "./firebase-map.test.js";
+import "./tabbar.test.js";
+import "./sync.test.js";
+import "./views.test.js";
 
 const result = await run();
 for (const f of result.failures) console.log(`FAIL ${f.name}\n      ${f.error}`);
