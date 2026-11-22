@@ -99,7 +99,7 @@ let scriptId = null;
 
 for (const theme of themes) {
   if (scriptId) await send("Page.removeScriptToEvaluateOnNewDocument", { identifier: scriptId });
-  ({ identifier: scriptId } = await send("Page.addScriptToEvaluateOnNewDocument", { source: `try { localStorage.setItem("theme", JSON.stringify("${theme}")); } catch (e) {}` }));
+  ({ identifier: scriptId } = await send("Page.addScriptToEvaluateOnNewDocument", { source: `try { localStorage.setItem("home-theme", JSON.stringify("${theme}")); } catch (e) {}` }));
   for (const [sizeName, width, height, mobile] of sizes) {
     await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
     for (const name of pages) {

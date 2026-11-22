@@ -12,9 +12,22 @@
   <meta name="apple-mobile-web-app-title" content="Home">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#05070c">
-  <script>
+  <script id="early-theme">
     // Apply the remembered theme before the first paint so the page never flashes the wrong one.
-    try { const t = JSON.parse(localStorage.getItem("theme")); if (t === "daylight") { document.documentElement.dataset.theme = t; document.querySelector('meta[name="theme-color"]').content = "#e9eef7"; } } catch (e) {}
+    // An old unprefixed value of ours is moved across once (js/core/store.js does the same).
+    try {
+      let t = localStorage.getItem("home-theme");
+      const old = t === null ? localStorage.getItem("theme") : null;
+      if (old === '"daylight"' || old === '"midnight"') {
+        t = old;
+        localStorage.setItem("home-theme", old);
+        localStorage.removeItem("theme");
+      }
+      if (t === '"daylight"') {
+        document.documentElement.dataset.theme = "daylight";
+        document.querySelector('meta[name="theme-color"]').content = "#e9eef7";
+      }
+    } catch (e) {}
   </script>
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/shell.css">

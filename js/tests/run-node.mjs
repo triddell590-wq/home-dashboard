@@ -12,6 +12,7 @@ import "./sync.test.js";
 import "./views.test.js";
 import "./signout.test.js";
 import "./startup.test.js";
+import "./store.test.js";
 import "./sw.test.js";
 import "./page.test.js";
 

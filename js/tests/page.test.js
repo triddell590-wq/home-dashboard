@@ -44,3 +44,26 @@ test("the still-connecting message does nothing once the page has been replaced"
 test("the iPhone status bar is readable in both themes", () => {
   ok(/name="apple-mobile-web-app-status-bar-style" content="default"/.test(html));
 });
+
+// ---- the theme before the first paint ----
+function runTheme(entries, over = {}) {
+  const m = new Map(Object.entries(entries));
+  const localStorage = { getItem: (k) => m.get(k) ?? null, setItem: (k, v) => { m.set(k, String(v)); }, removeItem: (k) => { m.delete(k); }, ...over };
+  const meta = { content: "#05070c" };
+  const document = { documentElement: { dataset: { theme: "midnight" } }, querySelector: () => meta };
+  vm.runInNewContext(inline("early-theme"), { localStorage, document });
+  return { theme: document.documentElement.dataset.theme, colour: meta.content, stored: Object.fromEntries(m) };
+}
+
+test("the early theme script reads home-theme", () => {
+  eq(runTheme({ "home-theme": '"daylight"' }), { theme: "daylight", colour: "#e9eef7", stored: { "home-theme": '"daylight"' } });
+  eq(runTheme({}).theme, "midnight");
+  eq(runTheme({}, { getItem: () => { throw new Error("blocked"); } }).theme, "midnight");
+});
+
+test("the early theme script moves this app's own old value across once, and nobody else's", () => {
+  eq(runTheme({ theme: '"daylight"' }), { theme: "daylight", colour: "#e9eef7", stored: { "home-theme": '"daylight"' } });
+  eq(runTheme({ theme: '"midnight"' }), { theme: "midnight", colour: "#05070c", stored: { "home-theme": '"midnight"' } });
+  eq(runTheme({ theme: "dark" }).stored, { theme: "dark" });
+  eq(runTheme({ theme: '"daylight"', "home-theme": '"midnight"' }), { theme: "midnight", colour: "#05070c", stored: { theme: '"daylight"', "home-theme": '"midnight"' } });
+});
