@@ -1,5 +1,6 @@
 // Settings: your name for the greeting, the theme, the signed-in account with Sign out, and the version.
-import { checkForUpdate } from "../core/update.js";
+import { checkForUpdate, currentRegistration } from "../core/update.js";
+import { VERSION } from "../version.js";
 import { auth } from "../core/auth.js";
 import { data } from "../core/data.js";
 import { depsFor, signOutFlow } from "../core/signout.js";
@@ -8,7 +9,6 @@ import { currentTheme, setTheme } from "../core/theme.js";
 
 export const tab = { id: "settings", label: "Settings", order: 90, foot: true, mount };
 
-export const VERSION = "0.1.0";
 const NAME_MAX = 40;
 
 /** Trim and cut to 40 characters. Markup is kept as plain text; the views only ever show it with textContent. */
@@ -79,8 +79,9 @@ function mount(container) {
     check.disabled = true;
     updateStatus.textContent = "";
     try {
-      const found = await checkForUpdate();
-      if (alive) updateStatus.textContent = found ? "New version ready" : "You're up to date";
+      const registration = await currentRegistration();
+      const found = registration ? await checkForUpdate(registration) : null;
+      if (alive) updateStatus.textContent = found === null ? "Updates need the installed app" : found ? "New version ready" : "You're up to date";
     } catch {
       if (alive) updateStatus.textContent = "Couldn't check — try again when you're online";
     } finally {

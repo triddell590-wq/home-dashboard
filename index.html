@@ -4,10 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Home Dashboard</title>
-  <link rel="icon" href="data:,">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Home">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#05070c">
   <script>
     // Apply the remembered theme before the first paint so the page never flashes the wrong one.
-    try { const t = JSON.parse(localStorage.getItem("theme")); if (t === "daylight") document.documentElement.dataset.theme = t; } catch (e) {}
+    try { const t = JSON.parse(localStorage.getItem("theme")); if (t === "daylight") { document.documentElement.dataset.theme = t; document.querySelector('meta[name="theme-color"]').content = "#e9eef7"; } } catch (e) {}
   </script>
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/shell.css">
@@ -38,6 +45,7 @@
 
   <div id="band" role="status" hidden></div>
   <div id="sync" role="status" hidden></div>
+  <div id="update" role="status" hidden></div>
 
   <main id="page" tabindex="-1"></main>
 

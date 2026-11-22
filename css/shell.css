@@ -58,11 +58,14 @@ a { color: var(--accent); }
 .toast { padding: 10px 16px; border-radius: 12px; background: var(--rail-bg-open); border: 1px solid var(--edge-strong); box-shadow: var(--shadow); animation: rise .3s var(--ease); }
 .footnote { position: relative; z-index: 1; text-align: center; color: var(--faint); font: 11px var(--mono); padding: 0 0 18px calc(var(--rail-closed) + 20px); }
 
-#band, #sync {
+#band, #sync, #update {
   position: fixed; top: max(10px, env(safe-area-inset-top)); z-index: 45; padding: 4px 12px; white-space: nowrap; border-radius: 99px;
   font: 11px var(--mono); letter-spacing: .04em; background: var(--rail-bg-open); border: 1px solid var(--edge-strong); box-shadow: var(--shadow);
 }
-#band { left: 50%; transform: translateX(-50%); color: var(--warn); }
+#band, #update { left: 50%; transform: translateX(-50%); color: var(--warn); }
+#update { color: var(--text); display: flex; align-items: center; gap: 10px; padding-right: 4px; }
+#update[hidden] { display: none; }
+#update button { font: inherit; letter-spacing: inherit; color: var(--button-text); background: var(--button); border: 0; border-radius: 99px; padding: 6px 14px; min-height: 28px; cursor: pointer; }
 #sync { right: 14px; color: var(--muted); }
 .signin-wrap { min-height: 70vh; display: grid; place-items: center; margin-left: calc(-1 * var(--rail-closed)); }
 .signin { width: min(100%, 420px); }
