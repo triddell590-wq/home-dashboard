@@ -4,6 +4,8 @@ import { run } from "./harness.js";
 import "./dom.test.js";
 import "./router.test.js";
 import "./registry.test.js";
+import "./data.test.js";
+import "./auth.test.js";
 
 const result = await run();
 for (const f of result.failures) console.log(`FAIL ${f.name}\n      ${f.error}`);
