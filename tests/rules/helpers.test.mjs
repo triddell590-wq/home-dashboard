@@ -28,12 +28,16 @@ await check('throws a clear error when ownerUid is absent', () => {
 await check('run.mjs exports decideJavaAction', () => {
   assert.equal(typeof run.decideJavaAction, 'function', 'decideJavaAction is missing from tests/rules/run.mjs');
 });
-await check('no java -> skip with the exact message, exit 0', () => {
-  assert.deepEqual(run.decideJavaAction({ status: 1 }), { run: false, message: 'Java not found — rules tests run on GitHub', exitCode: 0 });
-  assert.deepEqual(run.decideJavaAction({ error: new Error('ENOENT') }), { run: false, message: 'Java not found — rules tests run on GitHub', exitCode: 0 });
+const MSG = 'Java not found — rules tests run on GitHub';
+await check('no java, not CI -> message, exit 0', () => {
+  assert.deepEqual(run.decideJavaAction(false, false), { run: false, message: MSG, exitCode: 0 });
 });
-await check('java present -> run the emulator', () => {
-  assert.equal(run.decideJavaAction({ status: 0 }).run, true);
+await check('no java, CI -> message, exit 1', () => {
+  assert.deepEqual(run.decideJavaAction(false, true), { run: false, message: MSG, exitCode: 1 });
+});
+await check('java present -> run the emulator (CI or not)', () => {
+  assert.equal(run.decideJavaAction(true, false).run, true);
+  assert.equal(run.decideJavaAction(true, true).run, true);
 });
 
 if (failed) { console.log(failed + ' failed'); process.exit(1); }

@@ -49,6 +49,14 @@ test('owner cannot read another user\'s profile', async () => {
   await assertFails(getDoc(doc(asOwner(), `users/${INTRUDER}/settings/profile`)));
 });
 
+test('signed-out visitor cannot write the owner profile', async () => {
+  await assertFails(setDoc(doc(signedOut(), `users/${OWNER}/settings/profile`), { name: 'x' }));
+});
+
+test('another user cannot write the owner profile', async () => {
+  await assertFails(setDoc(doc(asIntruder(), `users/${OWNER}/settings/profile`), { name: 'x' }));
+});
+
 test('owner cannot write a top-level path', async () => {
   await assertFails(setDoc(doc(asOwner(), 'public/x'), { a: 1 }));
 });
