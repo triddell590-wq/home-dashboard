@@ -14,7 +14,7 @@ import { lessonItems, occurrences } from "../calendar/occurrences.js";
 import { comingUp, dayHeading, dayPhrase, formatTime, monthCells, overdueText, shortDate, summaryLine } from "../calendar/text.js";
 import { FIREBASE_CONFIG, VAPID_KEY } from "../config.js";
 import { chooseBackend } from "../core/data.js";
-import { ON_TEXT, STATUS_TEXT, browserEnv, deviceId, deviceLabel, messagingFor, pushState, removeDevice, turnOn } from "../calendar/push.js";
+import { STATUS_TEXT, addedText, browserEnv, onStatus, deviceId, deviceLabel, messagingFor, pushState, removeDevice, turnOn } from "../calendar/push.js";
 import { onVisible } from "../core/visible.js";
 import { watchToday } from "./lessons.js";
 
@@ -451,17 +451,31 @@ export function mountRemindersCard(grid, isAlive = () => true) {
   let failed = false;
   let message = "";             // an error from the last tap
   let busy = false;
+  const mode = chooseBackend(location.search, FIREBASE_CONFIG);
+  const vapidKey = mode === "firebase" ? VAPID_KEY : "";   // the memory backend never offers reminders
+  let prep;                     // undefined while checking; null when this browser can't; else { messaging, registration }
+
+  const prepare = async () => {
+    try {
+      const messaging = await pageMessaging();
+      const registration = messaging && navigator.serviceWorker ? await navigator.serviceWorker.getRegistration() : null;
+      prep = messaging && registration ? { messaging, registration } : null;
+    } catch { prep = null; }
+    if (isAlive()) draw();
+  };
 
   const draw = () => {
     if (!isAlive()) return;
     const mine = devices && devices.some((x) => x.id === thisId);
-    const state = pushState({ vapidKey: VAPID_KEY, ...browserEnv() });
+    const state = pushState({ vapidKey, ...browserEnv() });
     actionBox.replaceChildren();
     if (failed) statusLine.textContent = DEVICES_FAILED;
     else if (devices === null) statusLine.textContent = "Loading…";
     else if (message) statusLine.textContent = message;
-    else if (mine) statusLine.textContent = ON_TEXT;
+    else if (mine) statusLine.textContent = onStatus(browserEnv().permission);
     else if (state !== "ready") statusLine.textContent = STATUS_TEXT[state];
+    else if (prep === undefined) statusLine.textContent = "Checking this browser…";
+    else if (prep === null) statusLine.textContent = STATUS_TEXT.unsupported;
     else {
       statusLine.textContent = "Get a morning reminder at 7am on days with something on.";
       const button = el("button", { class: "btn primary", type: "button", onclick: tap }, "Turn on reminders on this device");
@@ -470,25 +484,25 @@ export function mountRemindersCard(grid, isAlive = () => true) {
     }
     list.replaceChildren(...(devices || []).map((x) => el("li", { class: "cal-device" },
       el("span", { class: "cal-title" }, x.id === thisId ? `${x.label} (this device)` : x.label),
-      el("span", { class: "sub" }, x.addedAt ? `Added ${shortDate(londonDay(new Date(x.addedAt)))}` : ""),
+      el("span", { class: "sub" }, addedText(x.addedAt)),
       el("button", { class: "btn ghost", type: "button", "aria-label": `Remove ${x.label}`, onclick: () => remove(x.id) }, "Remove"))));
     if (devices && !devices.length && !failed) list.append(el("li", { class: "sub" }, "No devices yet"));
   };
 
-  // Called straight from the click: the permission prompt needs the tap that started it.
+  // Called straight from the click: the permission prompt needs the tap that started it. Everything else it needs
+  // (messaging, the service-worker registration) was checked before the button was shown.
   function tap() {
-    if (busy) return;
+    if (busy || !prep) return;
     busy = true;
     message = "";
-    const env = browserEnv();
-    const permissionPromise = Notification.requestPermission();   // requested here, in the tap, never on load
+    let permissionPromise;
+    try { permissionPromise = Promise.resolve(Notification.requestPermission()); }   // in the tap, never on load
+    catch { permissionPromise = Promise.resolve("denied"); }
     draw();
+    const { messaging, registration } = prep;
     (async () => {
       try {
-        const messaging = await pageMessaging();
-        const registration = messaging && navigator.serviceWorker ? await navigator.serviceWorker.getRegistration() : null;
-        if (!messaging || !registration) { message = STATUS_TEXT["not-set-up"]; return; }
-        const r = await turnOn({ d: data(), messaging, registration, vapidKey: VAPID_KEY, id: thisId, label: deviceLabel(env.ua), now: stamp(), onFail: toast,
+        const r = await turnOn({ d: data(), messaging, registration, vapidKey, id: thisId, label: deviceLabel(browserEnv().ua), now: stamp(), onFail: toast,
           requestPermission: () => permissionPromise });
         if (r.error) message = r.error;
         else toast("Reminders turned on");
@@ -510,6 +524,7 @@ export function mountRemindersCard(grid, isAlive = () => true) {
     el("p", { class: "sub" }, "One notification at 7am (London) on days with something on."),
     statusLine, actionBox, list));
   draw();
+  if (pushState({ vapidKey, ...browserEnv() }) === "ready") prepare(); else prep = null;
 
   let timer = setTimeout(() => { timer = null; if (isAlive() && devices === null) { failed = true; draw(); } }, WAIT_MS);
   const clear = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };

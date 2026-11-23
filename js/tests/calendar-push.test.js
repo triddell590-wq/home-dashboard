@@ -1,6 +1,6 @@
 import { test, eq, ok } from "./harness.js";
 import { createMemoryData } from "../core/data-memory.js";
-import { ON_TEXT, STATUS_TEXT, deviceId, deviceLabel, messagingFor, pushState, refreshToken, removeDevice, turnOn } from "../calendar/push.js";
+import { OFF_TEXT, ON_TEXT, addedText, onStatus, STATUS_TEXT, deviceId, deviceLabel, messagingFor, pushState, refreshToken, removeDevice, turnOn } from "../calendar/push.js";
 
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1";
 const MAC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.5 Safari/605.1.15";
@@ -27,7 +27,7 @@ test("pushState: not set up first, then the iPhone home-screen rule", () => {
 
 test("the status words are the spec's", () => {
   eq(STATUS_TEXT["not-set-up"], "Reminders aren't set up yet");
-  eq(STATUS_TEXT["ios-install"], "On iPhone, add the app to your Home Screen first, then turn reminders on there");
+  eq(STATUS_TEXT["ios-install"], "On iPhone or iPad, open this page in Safari, tap Share, then Add to Home Screen. Open the app from your Home Screen and turn reminders on there. Needs iOS 16.4 or later.");
   eq(STATUS_TEXT.unsupported, "This browser can't show reminders");
   eq(STATUS_TEXT.denied, "Notifications are blocked for this app — allow them in your settings, then try again");
   eq(ON_TEXT, "Reminders are on for this device");
@@ -126,4 +126,16 @@ test("messagingFor is only used for Firebase, with a key, in a browser that supp
   eq(await messagingFor({ firebase: fb(false), mode: "firebase", vapidKey: "BKey" }), null);
   eq(await messagingFor({ firebase: {}, mode: "firebase", vapidKey: "BKey" }), null);
   eq(await messagingFor({ firebase: fb(true), mode: "firebase", vapidKey: "BKey" }), msg);
+});
+
+test("a listed device whose permission was later denied is not called 'on'", () => {
+  eq(OFF_TEXT, "Notifications are turned off for this app in your phone's settings");
+  eq(onStatus("granted"), ON_TEXT);
+  eq(onStatus("default"), ON_TEXT);
+  eq(onStatus("denied"), OFF_TEXT);
+});
+
+test("addedText survives a bad addedAt", () => {
+  eq(addedText("2026-11-23T09:00:00.000Z"), "Added Mon 23 Nov");
+  eq([addedText("nonsense"), addedText(undefined), addedText(42)], ["", "", ""]);
 });

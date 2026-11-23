@@ -2,15 +2,18 @@
 // removing devices, and keeping this device's token fresh. Pure apart from what is passed in, so Node can test it.
 // A device document holds only { token, label, addedAt } — never the user's email.
 import { issue } from "../core/issue.js";
+import { londonDay } from "../core/dom.js";
 import * as store from "../core/store.js";
+import { shortDate } from "./text.js";
 
 export const STATUS_TEXT = {
   "not-set-up": "Reminders aren't set up yet",
-  "ios-install": "On iPhone, add the app to your Home Screen first, then turn reminders on there",
+  "ios-install": "On iPhone or iPad, open this page in Safari, tap Share, then Add to Home Screen. Open the app from your Home Screen and turn reminders on there. Needs iOS 16.4 or later.",
   unsupported: "This browser can't show reminders",
   denied: "Notifications are blocked for this app — allow them in your settings, then try again",
 };
 export const ON_TEXT = "Reminders are on for this device";
+export const OFF_TEXT = "Notifications are turned off for this app in your phone's settings";
 export const TURN_ON_FAILED = "Couldn't turn on reminders — try again";
 
 const isIos = (ua, touch) => /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && touch > 1);
@@ -94,4 +97,14 @@ export async function refreshToken({ d, messaging, registration, vapidKey, id, p
   if (!doc) return;
   const token = await messaging.getToken({ vapidKey, serviceWorkerRegistration: registration });
   if (token && token !== doc.token) issue(() => d.update(`devices/${id}`, { token }), onFail);
+}
+
+/** The line for a device that is listed: "on", unless the browser has since blocked notifications. */
+export const onStatus = (permission) => (permission === "denied" ? OFF_TEXT : ON_TEXT);
+
+/** "Added Mon 23 Nov", or "" for a missing or hand-edited date. */
+export function addedText(addedAt) {
+  const t = typeof addedAt === "string" ? new Date(addedAt) : null;
+  if (!t || Number.isNaN(t.getTime())) return "";
+  try { return `Added ${shortDate(londonDay(t))}`; } catch { return ""; }
 }
