@@ -48,8 +48,11 @@ Until you finish, the app runs in test mode and shows "Test mode — nothing is 
      - **URL:** `https://api.github.com/repos/triddell590-wq/home-dashboard/actions/workflows/notify.yml/dispatches`
      - **Execution schedule:** choose **Custom**, set minutes to `0` and every hour, every day, and set **Time zone** to `Europe/London`.
      - Open the **Advanced** tab. **Request method:** `POST`. Under **Headers** add `Authorization` with the value `Bearer ` followed by your token, and `Accept` with the value `application/vnd.github+json`. **Request body:** `{"ref":"main"}`
+     - Turn on **Notify me on failure** (the email option under the job's notification settings) so cron-job.org emails you if the timer ever stops working.
      - Save, then click **Test run**. A good answer is **204 No Content**, and a "Morning reminders" run appears in the repository's **Actions** tab.
    - **e. On each device.** On the iPhone, open the dashboard from its Home Screen icon (step 9) → **Settings** → **Reminders** → **Turn on reminders on this device** → **Allow**. On the Mac, do the same in the browser you use.
    - To check: on GitHub open **Actions** → **Morning reminders** → **Run workflow**, tick **Dry run**, and run it; the log shows today's reminder. Nothing is sent before 7am or after 9pm London time, and never twice in a day.
+
+**If reminders stop.** GitHub turns off scheduled jobs in a repository that has had no activity for 60 days, and then the reminder job stops too. To fix it: on github.com open `home-dashboard` → **Actions** → **Morning reminders** → press **Enable workflow**. If a banner says the workflow is disabled, that is the button to press. Making any change to the repository (even a small one) also resets the 60 days.
 
 To check: sign in on your Mac, set your name in Settings, and open the app on your phone — the name is there.
