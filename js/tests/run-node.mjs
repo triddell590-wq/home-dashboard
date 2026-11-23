@@ -16,6 +16,7 @@ import "./store.test.js";
 import "./sw.test.js";
 import "./page.test.js";
 import "./lessons-sums.test.js";
+import "./lessons-data.test.js";
 
 const result = await run();
 for (const f of result.failures) console.log(`FAIL ${f.name}\n      ${f.error}`);
