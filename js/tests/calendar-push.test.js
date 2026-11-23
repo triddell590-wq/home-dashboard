@@ -1,6 +1,6 @@
 import { test, eq, ok } from "./harness.js";
 import { createMemoryData } from "../core/data-memory.js";
-import { OFF_TEXT, ON_TEXT, addedText, onStatus, STATUS_TEXT, deviceId, deviceLabel, messagingFor, pushState, refreshToken, removeDevice, turnOn } from "../calendar/push.js";
+import { OFF_TEXT, ON_TEXT, addedText, onStatus, STATUS_TEXT, deviceId, deviceLabel, messagingFor, pushState, refreshToken, removeDevice, turnOn, whenActive, NOT_READY_TEXT } from "../calendar/push.js";
 
 const IPHONE = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Version/17.5 Mobile/15E148 Safari/604.1";
 const MAC = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.5 Safari/605.1.15";
@@ -138,4 +138,34 @@ test("a listed device whose permission was later denied is not called 'on'", () 
 test("addedText survives a bad addedAt", () => {
   eq(addedText("2026-11-23T09:00:00.000Z"), "Added Mon 23 Nov");
   eq([addedText("nonsense"), addedText(undefined), addedText(42)], ["", "", ""]);
+});
+
+test("whenActive gives the active registration, or null if the worker isn't ready in time", async () => {
+  const reg = { active: {}, scope: "/x/" };
+  eq(await whenActive({ ready: Promise.resolve(reg) }, 50), reg);
+  eq(await whenActive({ ready: new Promise(() => {}) }, 10), null);
+  eq(await whenActive({ ready: Promise.reject(new Error("x")) }, 10), null);
+  eq(await whenActive(undefined, 10), null);
+});
+
+test("turnOn waits for the worker: not ready means plain words and no token request", async () => {
+  const d = createMemoryData();
+  const m = fakeMessaging();
+  const r = await turnOn({ d, messaging: m, registration: REG, ready: async () => null, vapidKey: "BKey", id: "dev1", label: "Mac", now: NOW, onFail, requestPermission: async () => "granted" });
+  eq(r, { error: NOT_READY_TEXT });
+  eq(NOT_READY_TEXT, "The app is still getting ready — wait a moment, then try again");
+  eq(m.calls.getToken.length, 0);
+  eq(await d.get("devices/dev1"), null);
+  const live = { scope: "/live/" };
+  const ok2 = await turnOn({ d, messaging: m, registration: REG, ready: async () => live, vapidKey: "BKey", id: "dev1", label: "Mac", now: NOW, onFail, requestPermission: async () => "granted" });
+  eq(ok2, { ok: true });
+  eq(m.calls.getToken, [{ vapidKey: "BKey", serviceWorkerRegistration: live }]);
+});
+
+test("refreshToken does nothing while the worker isn't ready", async () => {
+  const d = createMemoryData();
+  await d.set("devices/dev1", { token: "old", label: "Mac", addedAt: NOW });
+  const m = fakeMessaging("new");
+  await refreshToken({ d, messaging: m, registration: REG, ready: async () => null, vapidKey: "BKey", id: "dev1", permission: "granted", onFail });
+  eq(m.calls.getToken.length, 0);
 });

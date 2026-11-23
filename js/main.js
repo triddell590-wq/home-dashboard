@@ -22,7 +22,7 @@ import * as overview from "./views/overview.js";
 import * as settings from "./views/settings.js";
 import * as weather from "./views/weather.js";
 import { mountSignin } from "./views/signin.js";
-import { browserEnv, deviceId, messagingFor, refreshToken } from "./calendar/push.js";
+import { browserEnv, deviceId, messagingFor, refreshToken, whenActive } from "./calendar/push.js";
 import { WEATHER_ICONS } from "./weather/text.js";
 
 const ICONS = {
@@ -125,7 +125,7 @@ async function refreshDeviceToken() {
     const messaging = await messagingFor({ firebase: globalThis.firebase, mode: "firebase", vapidKey: VAPID_KEY });
     const registration = messaging && navigator.serviceWorker ? await navigator.serviceWorker.getRegistration() : null;
     if (!registration) return;
-    await refreshToken({ d: data(), messaging, registration, vapidKey: VAPID_KEY, id: deviceId(), permission: browserEnv().permission });
+    await refreshToken({ d: data(), messaging, registration, ready: () => whenActive(navigator.serviceWorker), vapidKey: VAPID_KEY, id: deviceId(), permission: browserEnv().permission });
   } catch { /* a stale token is not worth bothering anyone about */ }
 }
 

@@ -14,7 +14,7 @@ import { lessonItems, occurrences } from "../calendar/occurrences.js";
 import { comingUp, dayHeading, dayPhrase, formatTime, monthCells, overdueText, shortDate, summaryLine } from "../calendar/text.js";
 import { FIREBASE_CONFIG, VAPID_KEY } from "../config.js";
 import { chooseBackend } from "../core/data.js";
-import { STATUS_TEXT, addedText, browserEnv, onStatus, deviceId, deviceLabel, messagingFor, pushState, removeDevice, turnOn } from "../calendar/push.js";
+import { STATUS_TEXT, addedText, browserEnv, onStatus, deviceId, deviceLabel, messagingFor, pushState, removeDevice, turnOn, whenActive } from "../calendar/push.js";
 import { onVisible } from "../core/visible.js";
 import { watchToday } from "./lessons.js";
 
@@ -502,7 +502,7 @@ export function mountRemindersCard(grid, isAlive = () => true) {
     const { messaging, registration } = prep;
     (async () => {
       try {
-        const r = await turnOn({ d: data(), messaging, registration, vapidKey, id: thisId, label: deviceLabel(browserEnv().ua), now: stamp(), onFail: toast,
+        const r = await turnOn({ d: data(), messaging, registration, ready: () => whenActive(navigator.serviceWorker), vapidKey, id: thisId, label: deviceLabel(browserEnv().ua), now: stamp(), onFail: toast,
           requestPermission: () => permissionPromise });
         if (r.error) message = r.error;
         else toast("Reminders turned on");

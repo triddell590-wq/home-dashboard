@@ -14,6 +14,7 @@ export const STATUS_TEXT = {
 };
 export const ON_TEXT = "Reminders are on for this device";
 export const OFF_TEXT = "Notifications are turned off for this app in your phone's settings";
+export const NOT_READY_TEXT = "The app is still getting ready — wait a moment, then try again";
 export const TURN_ON_FAILED = "Couldn't turn on reminders — try again";
 
 const isIos = (ua, touch) => /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && touch > 1);
@@ -68,11 +69,28 @@ export async function messagingFor({ firebase, mode, vapidKey }) {
   }
 }
 
+/** The app's service worker once it is active (first visit: it may still be installing), or null after a short wait. */
+export async function whenActive(serviceWorker, ms = 4000) {
+  if (!serviceWorker || !serviceWorker.ready) return null;
+  let timer;
+  try {
+    return await Promise.race([
+      Promise.resolve(serviceWorker.ready),
+      new Promise((resolve) => { timer = setTimeout(() => resolve(null), ms); }),
+    ]);
+  } catch { return null; } finally { clearTimeout(timer); }
+}
+
 /** Must be called straight from the tap, because the permission prompt needs a user gesture. */
-export async function turnOn({ d, messaging, registration, vapidKey, id, label, now, onFail, requestPermission }) {
+export async function turnOn({ d, messaging, registration, ready, vapidKey, id, label, now, onFail, requestPermission }) {
   let permission;
   try { permission = await requestPermission(); } catch { permission = "denied"; }
   if (permission !== "granted") return { error: STATUS_TEXT.denied };
+  if (ready) {
+    const live = await ready();
+    if (!live) return { error: NOT_READY_TEXT };
+    registration = live;
+  }
   let token = null;
   try {
     // The app's own service worker is passed in, so Firebase never registers its own firebase-messaging-sw.js.
@@ -91,10 +109,15 @@ export function removeDevice(d, id, { thisId, messaging, onFail } = {}) {
 }
 
 /** Tokens can change; keeps this device's saved one current. Does nothing unless reminders are on here. */
-export async function refreshToken({ d, messaging, registration, vapidKey, id, permission, onFail }) {
+export async function refreshToken({ d, messaging, registration, ready, vapidKey, id, permission, onFail }) {
   if (permission !== "granted" || !messaging) return;
   const doc = await d.get(`devices/${id}`);
   if (!doc) return;
+  if (ready) {
+    const live = await ready();
+    if (!live) return;
+    registration = live;
+  }
   const token = await messaging.getToken({ vapidKey, serviceWorkerRegistration: registration });
   if (token && token !== doc.token) issue(() => d.update(`devices/${id}`, { token }), onFail);
 }
