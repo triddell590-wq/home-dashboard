@@ -269,3 +269,78 @@ test("a result for an old place arriving after a newer one is dropped", async ()
   eq(drawn, ["Plymouth"]);
   ctl.stop();
 });
+
+// ---- fix wave: lessons redraw gate, London midnight, weather offline warnings and plain error wording
+
+test("a same-data watch report does not redraw the Lessons tab, a changed one does", async () => {
+  const { makeDrawGate } = await import("../views/lessons.js");
+  const { recordsFrom } = await import("../lessons/records.js");
+  const make = (extra = []) => recordsFrom({ dayDocs: [{ id: "2026-11-10", lessons: 2, note: "a" }, ...extra], rateDocs: [{ id: "2026-01-01", pence: 1500 }] });
+  const drawn = [];
+  const gate = makeDrawGate((records, today) => drawn.push(today));
+  gate.draw(make(), "2026-11-23");
+  gate.draw(make(), "2026-11-23");                       // metadata-only report: the same data again
+  eq(drawn.length, 1);
+  gate.draw(make([{ id: "2026-11-11", lessons: 1 }]), "2026-11-23");
+  eq(drawn.length, 2);
+  gate.draw(make([{ id: "2026-11-11", lessons: 1 }]), "2026-11-24");   // a new day redraws
+  eq(drawn.length, 3);
+  gate.draw(make([{ id: "2026-11-11", lessons: 1 }]), "2026-11-24", true);   // a local action forces it
+  eq(drawn.length, 4);
+});
+
+test("watchToday ticks when the page comes back into view and at the next London midnight", async () => {
+  const { watchToday, msToLondonMidnight } = await import("../views/lessons.js");
+  // 23:30 UTC on 30 June is 00:30 on 1 July in London (summer time): the next midnight is 23h30m away
+  eq(msToLondonMidnight(new Date("2026-06-30T23:30:00Z")), 23.5 * 3600000);
+  eq(msToLondonMidnight(new Date("2026-11-23T23:30:00Z")), 30 * 60000);
+  const doc = fakeDocument();
+  let now = new Date("2026-11-23T23:30:00Z");
+  const timers = new Map();
+  let nextId = 1;
+  const setTimer = (fn, ms) => { timers.set(nextId, { fn, ms }); return nextId++; };
+  const clearTimer = (id) => timers.delete(id);
+  let ticks = 0;
+  const stop = watchToday({ onTick: () => { ticks++; }, clock: () => now, doc, setTimer, clearTimer });
+  eq([...timers.values()].map((t) => t.ms), [30 * 60000 + 50]);
+  doc.become("hidden");
+  eq(ticks, 0);
+  doc.become("visible");
+  eq(ticks, 1);
+  now = new Date("2026-11-24T00:00:00Z");
+  const [[id, t]] = [...timers.entries()];
+  timers.delete(id);                                    // a timer that has fired is gone
+  t.fn();
+  eq(ticks, 2);
+  eq([...timers.values()].map((x) => x.ms), [24 * 3600000 + 50]);   // the next midnight is armed
+  stop();
+  eq([timers.size, doc.listeners()], [0, 0]);
+});
+
+test("a failed warnings read still gives the forecast and the place", async () => {
+  if (typeof document !== "undefined") return;
+  const { readFileSync } = await import("node:fs");
+  const { createMemoryData } = await import("../core/data-memory.js");
+  const { useData, startData, data } = await import("../core/data.js");
+  const { loadWeather } = await import("../views/weather.js");
+  const mem = createMemoryData();
+  useData({ ...mem, get: (p) => (p.endsWith("/weather/warnings") ? Promise.reject(new Error("Failed to get document because the client is offline")) : mem.get(p)) });
+  startData("u1");
+  await data().set("settings/weather", { place: { name: "Hexham", county: "Northumberland", nation: "England", lat: 54.97, lon: -2.1, region: "ne" } });
+  const fetchImpl = async () => ({ ok: true, status: 200, text: async () => readFileSync(new URL("./fixtures/weather/forecast.json", import.meta.url), "utf8") });
+  const store = new Map();
+  const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => { store.set(k, String(v)); } };
+  const result = await loadWeather({ force: true, fetchImpl, storage, now: new Date("2026-11-21T12:00:00Z") });
+  eq(result.place.name, "Hexham");
+  eq(result.warnings_ok, false);
+  ok(result.summary.days.length > 0);
+});
+
+test("the forecast error card uses plain wording, never the raw error text", async () => {
+  const { failText } = await import("../views/weather.js");
+  const plain = "Couldn't load the forecast \u2014 check your connection and try Refresh";
+  eq(failText(new Error("Failed to get document because the client is offline")), plain);
+  eq(failText(new Error("Timed out")), plain);
+  eq(failText(new Error("Couldn't get the forecast right now")), plain);
+  eq(failText(null), plain);
+});

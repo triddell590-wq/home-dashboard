@@ -6,7 +6,7 @@
 import { data } from "../core/data.js";
 import { el, toast } from "../core/dom.js";
 import { go } from "../core/router.js";
-import { FORECAST_ERROR, getWeather } from "../weather/forecast.js";
+import { getWeather } from "../weather/forecast.js";
 import { WeatherError, searchPlaces } from "../weather/open-meteo.js";
 import { savePlace } from "../weather/place.js";
 import {
@@ -22,6 +22,10 @@ const WARNINGS_UNAVAILABLE = "Met Office warnings unavailable";
 const SEARCH_FAILED = "Couldn't search for places right now";
 const READ_FAILED = "Couldn't read the saved location.";
 const WAIT_MS = 10000;
+const FORECAST_FAILED = "Couldn't load the forecast \u2014 check your connection and try Refresh";
+
+/** What the error card says: always plain wording, never the technical error text. */
+export const failText = () => FORECAST_FAILED;
 
 // ------------------------------------------------------------------ loading
 
@@ -30,7 +34,8 @@ const inflight = new Map();   // force flag -> the one running load, shared by t
 function readBoth(d, waitMs) {
   let timer;
   const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("Timed out")), waitMs); });
-  const reads = Promise.all([d.get("settings/weather"), d.get("weather/warnings")]);
+  // Warnings that can't be read (offline, nothing cached) count as "no warnings available"; the place still matters.
+  const reads = Promise.all([d.get("settings/weather"), Promise.resolve().then(() => d.get("weather/warnings")).catch(() => null)]);
   return Promise.race([reads, timeout]).finally(() => clearTimeout(timer));
 }
 
@@ -214,9 +219,8 @@ function mount(container) {
       }
     },
     fail(err) {
-      const reason = err && err.message && err.message !== FORECAST_ERROR ? err.message : FORECAST_ERROR;
       body.replaceChildren(el("section", { class: "card wide static card-error", role: "alert" },
-        el("p", { class: "sub" }, `Couldn't load the forecast: ${reason}`),
+        el("p", { class: "sub" }, failText(err)),
         el("button", { class: "btn ghost small", type: "button", onclick: () => show(false) }, "Retry")));
     },
   });

@@ -5,6 +5,7 @@
 import { data } from "../core/data.js";
 import { SHORT_DAYS, el, londonDay, table, toast } from "../core/dom.js";
 import { go } from "../core/router.js";
+import { onVisible } from "../core/visible.js";
 import { saveDay, removeDay, addPayment, removePayment, previewRate, saveRate, saveLessonSettings } from "../lessons/actions.js";
 import { monthCsv, taxYearCsv } from "../lessons/csv.js";
 import { buildLessons, readLessons, recordsFrom, watchLessons } from "../lessons/records.js";
@@ -25,6 +26,56 @@ const needsSetup = (lessons) => !lessons || lessons.rate == null || lessons.time
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const today = () => londonDay(new Date());
 const context = () => ({ today: today(), now: new Date().toISOString(), onFail: toast });
+
+/** Milliseconds from `now` to the next London midnight (found by search, so summer time and the clock change are right). */
+export function msToLondonMidnight(now) {
+  const day = londonDay(now);
+  let lo = 0;
+  let hi = 26 * 3600000;       // a London day is never longer than 25 hours
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (londonDay(new Date(now.getTime() + mid)) === day) lo = mid; else hi = mid;
+  }
+  return hi;
+}
+
+/**
+ * Calls onTick() when the page comes back into view and at each London midnight while it stays open, so "Today"
+ * never shows yesterday. Everything is injectable for tests. Returns stop() (clears the timer and the listener).
+ */
+export function watchToday({ onTick, clock = () => new Date(), doc = document, setTimer = setTimeout, clearTimer = clearTimeout }) {
+  let timer = null;
+  let stopped = false;
+  const arm = () => {
+    if (stopped) return;
+    timer = setTimer(() => { timer = null; if (stopped) return; onTick(); arm(); }, msToLondonMidnight(clock()) + 50);
+  };
+  const stopVisible = onVisible(onTick, doc);
+  arm();
+  return () => {
+    stopped = true;
+    if (timer !== null) { clearTimer(timer); timer = null; }
+    stopVisible();
+  };
+}
+
+/**
+ * Wraps the Lessons drawing so a report that carries the same records on the same day (a metadata-only snapshot:
+ * a write acknowledged, cache then server, back online) draws nothing, and a typed-in box keeps its focus.
+ * `force` redraws anyway (the user's own action closing a form).
+ */
+export function makeDrawGate(paint) {
+  let last = null;
+  return {
+    draw(records, today, force = false) {
+      const print = JSON.stringify([today, records]);
+      if (!force && print === last) return false;
+      last = print;
+      paint(records, today);
+      return true;
+    },
+  };
+}
 
 /** A count box's text -> whole number 0 to 30, or null. */
 function parseLessons(text) {
@@ -280,9 +331,11 @@ function mount(container) {
         csvButton(`Download CSV: tax year ${label}`, () => taxYearCsv(records, ty.year))));
   }
 
-  function draw() {
-    if (!alive || !records) return;
-    lessons = buildLessons(records, today());
+  const gate = makeDrawGate((_, day) => paintAll(day));
+  const draw = (force = true) => { if (alive && records) gate.draw(records, today(), force); };
+
+  function paintAll(day) {
+    lessons = buildLessons(records, day);
     body.replaceChildren(...compact([
       needsSetup(lessons) ? el("section", { class: "card lz-section wide static" }, el("p", { class: "sub" }, NEEDS_SETUP)) : null,
       todaySection(), confirmSection(), monthSection(), paymentsSection(), monthsSection(), totalsSection()]));
@@ -292,7 +345,7 @@ function mount(container) {
     stopWatch();
     body.replaceChildren(el("p", { class: "sub", role: "status" }, "Loading…"));
     stopWatch = watchLive(data(), {
-      onData(next) { records = next; draw(); },
+      onData(next) { records = next; draw(false); },
       onError() {
         if (!alive || records) return;
         body.replaceChildren(errorSection(LOAD_FAILED, start));
@@ -301,7 +354,8 @@ function mount(container) {
   }
 
   start();
-  return () => { alive = false; stopWatch(); };
+  const stopDay = typeof document === "undefined" ? () => {} : watchToday({ onTick: () => draw(false) });
+  return () => { alive = false; stopWatch(); stopDay(); };
 }
 
 // ------------------------------------------------------------------ Overview card and "Your day"
