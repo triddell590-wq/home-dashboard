@@ -23,27 +23,44 @@ export function londonStamp(y, mo, d, hh, mm) {
   const back = new Date(wall);
   if (back.getUTCFullYear() !== y || back.getUTCMonth() !== mo - 1 || back.getUTCDate() !== d
     || back.getUTCHours() !== hh || back.getUTCMinutes() !== mm) return null;
-  const off = offsetAt(wall - offsetAt(wall) * 60000);
+  // October's repeated hour: Python (fold=0) takes the first occurrence, +01:00.
+  const off = offsetAt(wall - 3600000) === 60 ? 60 : offsetAt(wall - offsetAt(wall) * 60000);
   return `${y}-${pad(mo)}-${pad(d)}T${pad(hh)}:${pad(mm)}:00+0${off / 60}:00`;
 }
 
 const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+const codePoint = (n, whole) => (n >= 1 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : whole);
+const decode = (t) => t.replace(/&(?:(amp|lt|gt|quot|apos)|#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6}));/g,
+  (whole, name, dec, hex) => (name ? ENTITIES[name] : codePoint(dec ? Number(dec) : parseInt(hex, 16), whole)));
 function text(raw) {
   const out = [];
   let rest = raw;
   for (;;) {
     const i = rest.indexOf("<![CDATA[");
     const j = i < 0 ? -1 : rest.indexOf("]]>", i);
-    if (j < 0) { out.push(rest.replace(/&(amp|lt|gt|quot|apos);/g, (_, n) => ENTITIES[n])); break; }
-    out.push(rest.slice(0, i).replace(/&(amp|lt|gt|quot|apos);/g, (_, n) => ENTITIES[n]), rest.slice(i + 9, j));
+    if (j < 0) { out.push(decode(rest)); break; }
+    out.push(decode(rest.slice(0, i)), rest.slice(i + 9, j));
     rest = rest.slice(j + 3);
   }
   return out.join("").trim();
 }
-const child = (xml, name) => {
-  const m = new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`).exec(xml);
-  return m ? text(m[1]) : "";
-};
+// Body of the first <name ...>...</name>, found with indexOf so unclosed tags cost linear time.
+function inner(xml, name, from = 0) {
+  let i = from;
+  for (;;) {
+    i = xml.indexOf(`<${name}`, i);
+    if (i < 0) return null;
+    const c = xml[i + name.length + 1];
+    if (c === ">" || c === " " || c === "\t" || c === "\n" || c === "\r") break;
+    i += 1;
+  }
+  const open = xml.indexOf(">", i);
+  if (open < 0) return null;
+  const close = xml.indexOf(`</${name}>`, open);
+  if (close < 0) return null;
+  return { body: xml.slice(open + 1, close), end: close + name.length + 3, start: i };
+}
+const child = (xml, name) => { const r = inner(xml, name); return r ? text(r.body) : ""; };
 
 const LEVEL = /\b(red|amber|yellow)\b/i;
 const KIND = /warning of (\w+)/i;
@@ -65,11 +82,24 @@ function times(description, pub) {
   return a && b ? [a, b] : [null, null];
 }
 
+export const MAX_FEED_CHARS = 1_000_000;
+
 export function parseWarnings(xmlText) {
-  const ch = /<channel(?:\s[^>]*)?>([\s\S]*)<\/channel>/.exec(String(xmlText));
+  const raw = String(xmlText);
+  if (raw.length > MAX_FEED_CHARS) throw new Error("warnings feed too large");
+  const ch = inner(raw, "channel");
   if (!ch) throw new Error("no channel in warnings feed");
-  const items = [...ch[1].matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/g)].map((m) => m[1]);
-  const pubText = child(ch[1].replace(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/g, ""), "pubDate");
+  const items = [];
+  let head = "";
+  let pos = 0;
+  for (;;) {
+    const it = inner(ch.body, "item", pos);
+    if (!it) { head += ch.body.slice(pos); break; }
+    head += ch.body.slice(pos, it.start);
+    items.push(it.body);
+    pos = it.end;
+  }
+  const pubText = child(head, "pubDate");
   const ms = pubText ? Date.parse(pubText) : NaN;
   const pub = Number.isNaN(ms) ? null : londonParts(ms);
   return items.map((item) => {

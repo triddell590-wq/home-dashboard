@@ -40,7 +40,19 @@ async function connectAdmin(serviceAccountJson) {
   return getFirestore();
 }
 
-export async function main({ env = process.env, rulesText, log = console.log, connect = connectAdmin, fetchImpl, now } = {}) {
+const safeCode = (err) => (err && typeof err.code !== "object" && /^[\w.-]{1,40}$/.test(String(err.code ?? "")) ? ` (${err.code})` : "");
+
+export async function main(opts = {}) {
+  const log = opts.log ?? console.log;
+  try {
+    return await run({ ...opts, log });
+  } catch (err) {
+    log(`::error::Met Office warnings job failed${safeCode(err)}`);
+    return 1;
+  }
+}
+
+async function run({ env = process.env, rulesText, log, connect = connectAdmin, fetchImpl, now }) {
   const secret = env.FIREBASE_SERVICE_ACCOUNT;
   if (!secret || !secret.trim()) {
     log("::notice::FIREBASE_SERVICE_ACCOUNT is not set — Met Office warnings were not fetched");

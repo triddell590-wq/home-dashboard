@@ -153,3 +153,48 @@ test("main connects with the secret, refreshes, and never prints the secret", as
   eq(firestore.writes.length, 1);
   ok(!logs.join("\n").includes("TOPSECRET"));
 });
+
+test("londonStamp takes the first occurrence in October's repeated hour, like Python", () => {
+  eq(londonStamp(2026, 10, 25, 1, 30), "2026-10-25T01:30:00+01:00");
+  eq(londonStamp(2026, 10, 25, 2, 30), "2026-10-25T02:30:00+00:00");
+  eq(londonStamp(2026, 3, 29, 1, 30), "2026-03-29T01:30:00+00:00");
+  eq(londonStamp(2026, 3, 29, 2, 0), "2026-03-29T02:00:00+01:00");
+});
+
+test("numeric character references are decoded", () => {
+  const xml = "<rss><channel><item><title>Yellow warning of wind &#8217;x&#39; &#x2019; &#0; &amp;lt;</title></item></channel></rss>";
+  eq(parseWarnings(xml)[0].title, "Yellow warning of wind \u2019x' \u2019 &#0; &lt;");
+});
+
+test("an oversized feed is refused and unclosed tags parse quickly", () => {
+  let err = null;
+  try { parseWarnings("<channel>" + "x".repeat(1_000_001)); } catch (e) { err = e; }
+  ok(err, "expected a throw");
+  const t = Date.now();
+  let e2 = null;
+  try { parseWarnings("<channel>".repeat(100000)); } catch (e) { e2 = e; }
+  parseWarnings("<channel>" + "<item>".repeat(100000) + "</channel>");
+  ok(Date.now() - t < 1000, "unclosed tags must be linear");
+});
+
+test("a non-OK HTTP status counts as a failed fetch and keeps old data", async () => {
+  const prev = { region: "ne", ok: true, items: [{ level: "red" }] };
+  const firestore = fakeFirestore({ ...placeDoc("ne"), [`users/${OWNER}/weather/warnings`]: prev });
+  const logs = [];
+  const bad = async () => ({ ok: false, status: 503, text: async () => fixture("warnings_two.xml") });
+  await refreshWarnings({ firestore, uid: OWNER, fetchImpl: bad, now: NOW, log: (m) => logs.push(m) });
+  eq(firestore.writes[0][1], { region: "ne", ok: false, fetchedAt: null, items: prev.items });
+  ok(logs.includes("::warning::Met Office warnings couldn't be fetched"));
+});
+
+test("a Firestore error gives one fixed ::error:: line and exit 1, no stack", async () => {
+  const boom = Object.assign(new Error("secret-ish detail\n    at stack"), { code: 7 });
+  const firestore = { doc: () => ({ get: async () => { throw boom; }, set: async () => {} }) };
+  const logs = [];
+  const code = await main({
+    env: { FIREBASE_SERVICE_ACCOUNT: "{}" }, rulesText: `function ownerUid() { return "${OWNER}"; }`,
+    log: (m) => logs.push(m), connect: async () => firestore,
+  });
+  eq(code, 1);
+  eq(logs, ["::error::Met Office warnings job failed (7)"]);
+});
