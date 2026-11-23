@@ -9,7 +9,7 @@ import {
 const FAIL = "Couldn't save — try again";
 const stampOf = (now) => (now instanceof Date ? now.toISOString() : now);
 
-function issue(write, onFail) {
+export function issue(write, onFail) {
   let p;
   try { p = Promise.resolve(write()); } catch (err) { p = Promise.reject(err); }
   p.catch(() => { if (onFail) onFail(FAIL); });
