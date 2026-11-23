@@ -17,22 +17,22 @@ test("today's items, with lessons listed when something is on", () => {
 test("deadlines: on the day, three days ahead, done ones dropped", () => {
   const dl = (title, date, done = []) => ev({ id: title, title, kind: "deadline", date, done });
   const r = buildDigest({ events: [dl("Car tax", T), dl("Council tax", "2026-11-26"), dl("Rates", "2026-11-25"), dl("Paid", T, [T])], records: NO_LESSONS, today: T });
-  eq([r.title, r.lines, r.count], ["Today and coming up", ["Due today: car tax", "Due Thu: council tax"], 2]);
+  eq([r.title, r.lines, r.count], ["Today and coming up", ["Due today: Car tax", "Due Thu: Council tax"], 2]);
 });
 test("an overdue deadline is mentioned once, on its first day overdue", () => {
   const dl = (date) => ev({ title: "Car tax", kind: "deadline", date });
-  eq(buildDigest({ events: [dl("2026-11-22")], records: NO_LESSONS, today: T }).lines, ["Overdue: car tax"]);
+  eq(buildDigest({ events: [dl("2026-11-22")], records: NO_LESSONS, today: T }).lines, ["Overdue: Car tax"]);
   eq(buildDigest({ events: [dl("2026-11-21")], records: NO_LESSONS, today: T }), NONE);
 });
 test("a deadline three days away is enough on its own to send", () => {
   const r = buildDigest({ events: [ev({ title: "Council tax", kind: "deadline", date: "2026-11-26" })], records: LESSONS, today: T });
-  eq([r.title, r.lines, r.count], ["Today and coming up", ["Lessons — usually 6", "Due Thu: council tax"], 1]);
+  eq([r.title, r.lines, r.count], ["Today and coming up", ["Lessons — usually 6", "Due Thu: Council tax"], 1]);
 });
 test("lines run overdue, due today, today's items, lessons, then due in three days", () => {
   const dl = (title, date) => ev({ id: title, title, kind: "deadline", date });
   const r = buildDigest({ events: [dl("Rates", "2026-11-26"), ev({ id: "j", title: "Bins" }), dl("Tax", T), dl("MOT", "2026-11-22")], records: LESSONS, today: T });
-  eq(r.items, ["Overdue: MOT", "Due today: tax", "Bins", "Lessons — usually 6"]);
-  eq(r.lines, ["Overdue: MOT", "Due today: tax", "Bins", "Lessons — usually 6", "+1 more"]);
+  eq(r.items, ["Overdue: MOT", "Due today: Tax", "Bins", "Lessons — usually 6"]);
+  eq(r.lines, ["Overdue: MOT", "Due today: Tax", "Bins", "Lessons — usually 6", "+1 more"]);
   eq([r.title, r.count], ["Today and coming up", 4]);
 });
 test("at most 4 lines, then +N more", () => {

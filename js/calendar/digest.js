@@ -3,7 +3,7 @@
 import { SHORT_DAYS } from "../core/dom.js";
 import { addDays } from "../lessons/sums.js";
 import { occurrences, lessonItems } from "./occurrences.js";
-import { formatTime, lowerFirst } from "./text.js";
+import { formatTime } from "./text.js";
 
 export const MAX_LINES = 4;
 export const DIGEST_URL = "#/calendar";
@@ -15,8 +15,8 @@ export function buildDigest({ events, records, today }) {
   const occs = occurrences(events, addDays(today, -1), ahead);
   const open = (o) => o.kind === "deadline" && !o.done;
   const lines = [];
-  for (const o of occs) if (open(o) && o.date === addDays(today, -1)) lines.push(`Overdue: ${lowerFirst(o.title)}`);
-  for (const o of occs) if (open(o) && o.date === today) lines.push(`Due today: ${lowerFirst(o.title)}`);
+  for (const o of occs) if (open(o) && o.date === addDays(today, -1)) lines.push(`Overdue: ${o.title}`);
+  for (const o of occs) if (open(o) && o.date === today) lines.push(`Due today: ${o.title}`);
   for (const o of occs) {
     if (o.date === today && o.kind !== "deadline") lines.push(o.time ? `${o.title} ${formatTime(o.time)}` : o.title);
   }
@@ -25,7 +25,7 @@ export function buildDigest({ events, records, today }) {
   if (count === 0) return NONE();
   const lesson = lessonItems(records, today, today, today)[0];
   if (lesson) lines.push(lesson.title);
-  for (const o of soon) lines.push(`Due ${SHORT_DAYS[new Date(`${o.date}T12:00:00Z`).getUTCDay()]}: ${lowerFirst(o.title)}`);
+  for (const o of soon) lines.push(`Due ${SHORT_DAYS[new Date(`${o.date}T12:00:00Z`).getUTCDay()]}: ${o.title}`);
   const items = lines.slice(0, MAX_LINES);
   return {
     title: soon.length ? "Today and coming up" : "Today",

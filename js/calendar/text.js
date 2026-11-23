@@ -26,9 +26,6 @@ export function dayHeading(date, today) {
   return date === today ? "Today" : date === addDays(today, 1) ? "Tomorrow" : shortDate(date);
 }
 
-// "Car tax" -> "car tax", but "MOT" stays.
-export const lowerFirst = (title) => (/^.[A-Z]/.test(title) ? title : title.charAt(0).toLowerCase() + title.slice(1));
-
 const ordinal = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : { 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th"}`;
 
 export function repeatWords(repeat, date) {
@@ -55,17 +52,17 @@ export function summaryLine(f, today) {
   return `${f.title || "No title"} — ${parts.join(", ")}`;
 }
 
-export const overdueText = (title, date, today) => `Overdue: ${lowerFirst(title)} — ${plural(dayGap(date, today), "day")}`;
+export const overdueText = (title, date, today) => `Overdue: ${title} — ${plural(dayGap(date, today), "day")}`;
 
 // "Your day" phrase from today's-and-earlier occurrences (lessons excluded); first match wins.
 export function dayPhrase(occs, today) {
   const todays = occs.filter((o) => o.date === today && !(o.kind === "deadline" && o.done));
   const overdue = occs.find((o) => o.kind === "deadline" && o.date < today && !o.done);
-  if (overdue) return `${lowerFirst(overdue.title)} overdue`;
+  if (overdue) return `${overdue.title} overdue`;
   const timed = todays.find((o) => o.time);
-  if (timed) return `${lowerFirst(timed.title)} at ${formatTime(timed.time)}`;
+  if (timed) return `${timed.title} at ${formatTime(timed.time)}`;
   const due = todays.find((o) => o.kind === "deadline");
-  if (due) return `${lowerFirst(due.title)} due today`;
+  if (due) return `${due.title} due today`;
   return todays.length ? `${todays.length} ${todays.length === 1 ? "thing" : "things"} today` : null;
 }
 
