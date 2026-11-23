@@ -59,7 +59,7 @@ export async function runNotify({ firestore, send, uid, now, dryRun = false, arg
   }
 
   if (devices.length === 0) {
-    log("::notice::There is something on today, but no device has reminders turned on");
+    log("::notice::There is something on today, but there are no devices with reminders turned on");
     await reminderRef.set({ sentAt: now.toISOString(), items: digest.items, count: digest.count, devices: 0, errors: [] });
     return { ...base, status: "sent", digest, exitCode: 0 };
   }
