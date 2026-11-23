@@ -27,6 +27,7 @@ import "./calendar-occurrences.test.js";
 import "./calendar-events.test.js";
 import "./calendar-text.test.js";
 import "./calendar-digest.test.js";
+import "./calendar-push.test.js";
 import "./warnings-tool.test.js";
 
 const result = await run();

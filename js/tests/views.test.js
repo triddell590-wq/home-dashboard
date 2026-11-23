@@ -358,10 +358,26 @@ test("previewState shows what was understood and needs a date to save", async ()
 test("the preview marks every guess the parser was unsure about", async () => {
   const { unsureNotes } = await import("../views/calendar.js");
   const { parse } = await import("../calendar/parse.js");
-  eq(unsureNotes(parse("meet jo at 5:30", "2026-11-23")), ["Is 5:30pm right?"]);
+  eq(unsureNotes(parse("meet jo at 5:30", "2026-11-23")), ["Is 5.30pm right?"]);
   eq(unsureNotes(parse("tidy garden every spring", "2026-11-23")), ["Check the date"]);
   eq(unsureNotes(parse("tuesday", "2026-11-23")), ["Add a title"]);
   eq(unsureNotes(parse("dentist tuesday 2pm", "2026-11-23")), []);
+});
+
+test("when Save is off, a note says why (date first, then title)", async () => {
+  const { saveNote } = await import("../views/calendar.js");
+  eq(saveNote({ date: null, title: "" }), "Pick a date to save");
+  eq(saveNote({ date: null, title: "Dentist" }), "Pick a date to save");
+  eq(saveNote({ date: "2026-11-24", title: "  " }), "Add a title to save");
+  eq(saveNote({ date: "2026-11-24", title: "Dentist" }), "");
+});
+
+test("the Reminders settings card is registered after the lessons card", async () => {
+  const { registerCalendar } = await import("../views/calendar.js");
+  const { createRegistry } = await import("../core/registry.js");
+  const r = createRegistry();
+  registerCalendar({ registerCard: r.registerCard, registerDayPart: r.registerDayPart, registerSettingsCard: r.registerSettingsCard });
+  eq(r.settingsCards().map((c) => [c.id, c.order]), [["reminders", 40]]);
 });
 
 test("the Overview card lists today, then deadlines due in the next 3 days, and flags overdue", async () => {

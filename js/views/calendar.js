@@ -12,6 +12,9 @@ import { parse } from "../calendar/parse.js";
 import { deleteEvent, saveEvent, setDone, skipOccurrence, watchEvents } from "../calendar/events.js";
 import { lessonItems, occurrences } from "../calendar/occurrences.js";
 import { comingUp, dayHeading, dayPhrase, formatTime, monthCells, overdueText, shortDate, summaryLine } from "../calendar/text.js";
+import { FIREBASE_CONFIG, VAPID_KEY } from "../config.js";
+import { chooseBackend } from "../core/data.js";
+import { ON_TEXT, STATUS_TEXT, browserEnv, deviceId, deviceLabel, messagingFor, pushState, removeDevice, turnOn } from "../calendar/push.js";
 import { onVisible } from "../core/visible.js";
 import { watchToday } from "./lessons.js";
 
@@ -41,11 +44,18 @@ export function previewState(text, day) {
 export function unsureNotes(fields) {
   const notes = [];
   for (const key of fields.unsure || []) {
-    if (key === "time" && fields.time) notes.push(`Is ${formatTime(fields.time).replace(".", ":")} right?`);
+    if (key === "time" && fields.time) notes.push(`Is ${formatTime(fields.time)} right?`);
     else if (key === "date") notes.push("Check the date");
     else if (key === "title") notes.push("Add a title");
   }
   return notes;
+}
+
+/** Why Save is off, in plain words ("" when it is on). */
+export function saveNote(fields) {
+  if (!fields.date) return "Pick a date to save";
+  if (!String(fields.title || "").trim()) return "Add a title to save";
+  return "";
 }
 
 /** What the Overview card shows: today's items, deadlines due in the next 3 days, and overdue deadlines. */
@@ -117,6 +127,7 @@ function buildForm({ fields, day, saveLabel = "Save", onSave, onCancel, extra = 
   const line = el("p", { class: "cal-line" });
   const notes = el("div", { class: "cal-unsure", role: "status" });
   const errorLine = el("p", { class: "sub cal-error", role: "alert" });
+  const saveWhy = el("p", { class: "sub cal-save-note", role: "status" });
   const save = el("button", { class: "btn primary", type: "button", onclick: () => onSave(fields) }, saveLabel);
 
   const titleBox = el("input", { type: "text", "aria-label": "Title", maxlength: "80", autocomplete: "off", autocapitalize: "sentences", enterkeyhint: "done", value: fields.title });
@@ -144,6 +155,7 @@ function buildForm({ fields, day, saveLabel = "Save", onSave, onCancel, extra = 
     line.textContent = summaryLine(fields, day);
     notes.replaceChildren(...unsureNotes(fields).map((n) => el("p", { class: "cal-note" }, n)));
     save.disabled = !(fields.date && fields.title.trim());
+    saveWhy.textContent = saveNote(fields);
     timeBox.disabled = allDay.checked;
     const repeating = repeatBox.value !== "none";
     everyRow.hidden = !repeating;
@@ -179,7 +191,7 @@ function buildForm({ fields, day, saveLabel = "Save", onSave, onCancel, extra = 
       el("div", { class: "cal-time" }, el("label", {}, "Time", timeBox), el("label", { class: "cal-check" }, allDay, "All day")),
       el("label", {}, "Repeat", repeatBox),
       everyRow, untilRow),
-    errorLine,
+    errorLine, saveWhy,
     el("div", { class: "actions cal-actions" }, save, ...extra, onCancel ? el("button", { class: "btn ghost", type: "button", onclick: onCancel }, "Cancel") : null));
   refresh();
   return { node, error: (text) => { errorLine.textContent = text || ""; } };
@@ -385,7 +397,7 @@ function renderCard(m, body) {
     m.soon.length ? el("ul", { class: "cal-card-list" }, m.soon.map((o) => el("li", {}, el("span", { class: "cal-time-text" }, dayHeading(o.date, m.today_date)), el("span", { class: "cal-title" }, o.title)))) : null));
 }
 
-export function registerCalendar({ registerCard, registerDayPart }) {
+export function registerCalendar({ registerCard, registerDayPart, registerSettingsCard }) {
   let latest = null;       // the newest data the card's watch has seen
   let failed = false;
   let shown = null;        // fingerprint of what the card last drew
@@ -420,4 +432,100 @@ export function registerCalendar({ registerCard, registerDayPart }) {
       return null;
     }
   } });
+  if (registerSettingsCard) registerSettingsCard({ id: "reminders", order: 40, mount: mountRemindersCard });
+}
+
+// ------------------------------------------------------------------ Settings card: Reminders on this device
+
+const DEVICES_FAILED = "Couldn't load your devices. Check your connection and try again.";
+
+/** The Firebase messaging object for this page, or null (memory backend, no key, unsupported browser). */
+const pageMessaging = () => messagingFor({ firebase: globalThis.firebase, mode: chooseBackend(location.search, FIREBASE_CONFIG), vapidKey: VAPID_KEY });
+
+export function mountRemindersCard(grid, isAlive = () => true) {
+  const thisId = deviceId();
+  const statusLine = el("p", { class: "sub", role: "status" }, "Loading…");
+  const actionBox = el("div", { class: "actions" });
+  const list = el("ul", { class: "cal-devices" });
+  let devices = null;           // null until the first read
+  let failed = false;
+  let message = "";             // an error from the last tap
+  let busy = false;
+
+  const draw = () => {
+    if (!isAlive()) return;
+    const mine = devices && devices.some((x) => x.id === thisId);
+    const state = pushState({ vapidKey: VAPID_KEY, ...browserEnv() });
+    actionBox.replaceChildren();
+    if (failed) statusLine.textContent = DEVICES_FAILED;
+    else if (devices === null) statusLine.textContent = "Loading…";
+    else if (message) statusLine.textContent = message;
+    else if (mine) statusLine.textContent = ON_TEXT;
+    else if (state !== "ready") statusLine.textContent = STATUS_TEXT[state];
+    else {
+      statusLine.textContent = "Get a morning reminder at 7am on days with something on.";
+      const button = el("button", { class: "btn primary", type: "button", onclick: tap }, "Turn on reminders on this device");
+      button.disabled = busy;
+      actionBox.append(button);
+    }
+    list.replaceChildren(...(devices || []).map((x) => el("li", { class: "cal-device" },
+      el("span", { class: "cal-title" }, x.id === thisId ? `${x.label} (this device)` : x.label),
+      el("span", { class: "sub" }, x.addedAt ? `Added ${shortDate(londonDay(new Date(x.addedAt)))}` : ""),
+      el("button", { class: "btn ghost", type: "button", "aria-label": `Remove ${x.label}`, onclick: () => remove(x.id) }, "Remove"))));
+    if (devices && !devices.length && !failed) list.append(el("li", { class: "sub" }, "No devices yet"));
+  };
+
+  // Called straight from the click: the permission prompt needs the tap that started it.
+  function tap() {
+    if (busy) return;
+    busy = true;
+    message = "";
+    const env = browserEnv();
+    const permissionPromise = Notification.requestPermission();   // requested here, in the tap, never on load
+    draw();
+    (async () => {
+      try {
+        const messaging = await pageMessaging();
+        const registration = messaging && navigator.serviceWorker ? await navigator.serviceWorker.getRegistration() : null;
+        if (!messaging || !registration) { message = STATUS_TEXT["not-set-up"]; return; }
+        const r = await turnOn({ d: data(), messaging, registration, vapidKey: VAPID_KEY, id: thisId, label: deviceLabel(env.ua), now: stamp(), onFail: toast,
+          requestPermission: () => permissionPromise });
+        if (r.error) message = r.error;
+        else toast("Reminders turned on");
+      } catch (err) {
+        console.warn("turn on reminders:", err);
+        message = "Couldn't turn on reminders — try again";
+      } finally {
+        busy = false;
+        draw();
+      }
+    })();
+  }
+
+  async function remove(id) {
+    removeDevice(data(), id, { thisId, messaging: id === thisId ? await pageMessaging() : null, onFail: toast });
+  }
+
+  grid.append(el("section", { class: "card half static", "data-card": "reminders" }, el("div", { class: "label" }, "Reminders"),
+    el("p", { class: "sub" }, "One notification at 7am (London) on days with something on."),
+    statusLine, actionBox, list));
+  draw();
+
+  let timer = setTimeout(() => { timer = null; if (isAlive() && devices === null) { failed = true; draw(); } }, WAIT_MS);
+  const clear = () => { if (timer !== null) { clearTimeout(timer); timer = null; } };
+  let stopWatch = () => {};
+  try {
+    stopWatch = data().watch("devices", (docs) => {
+      if (!isAlive()) return;
+      clear();
+      failed = false;
+      devices = (Array.isArray(docs) ? docs : []).filter((x) => x && typeof x.label === "string").sort((a, b) => String(a.addedAt).localeCompare(String(b.addedAt)));
+      draw();
+    });
+  } catch {
+    clear();
+    failed = true;
+    draw();
+  }
+  return () => { clear(); if (typeof stopWatch === "function") stopWatch(); };
 }

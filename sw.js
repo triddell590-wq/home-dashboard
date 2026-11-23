@@ -44,6 +44,7 @@ var FILES = [
   "./js/calendar/events.js",
   "./js/calendar/text.js",
   "./js/calendar/digest.js",
+  "./js/calendar/push.js",
   "./js/weather/text.js",
   "./js/weather/summary.js",
   "./js/weather/open-meteo.js",

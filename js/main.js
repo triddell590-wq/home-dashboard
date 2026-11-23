@@ -1,6 +1,6 @@
 // Starts the dashboard: picks the backends, waits to learn who is signed in, then shows either the sign-in
 // screen or the app (sidebar, phone tab bar, router).
-import { FIREBASE_CONFIG } from "./config.js";
+import { FIREBASE_CONFIG, VAPID_KEY } from "./config.js";
 import { auth, useAuth } from "./core/auth.js";
 import { createFirebaseAuth } from "./core/auth-firebase.js";
 import { createMemoryAuth } from "./core/auth-memory.js";
@@ -22,6 +22,7 @@ import * as overview from "./views/overview.js";
 import * as settings from "./views/settings.js";
 import * as weather from "./views/weather.js";
 import { mountSignin } from "./views/signin.js";
+import { browserEnv, deviceId, messagingFor, refreshToken } from "./calendar/push.js";
 import { WEATHER_ICONS } from "./weather/text.js";
 
 const ICONS = {
@@ -114,7 +115,18 @@ function showApp(user) {
   tabbar.hidden = false;
   stopSync = startSyncStatus($("sync"), data());
   started = true;
+  if (chooseBackend(location.search, FIREBASE_CONFIG) === "firebase") refreshDeviceToken();
   return router.start(page, tabs(), (id) => { markRail(id); markBar(id); });
+}
+
+/** Keeps this device's reminder token current (it can change). Quiet: any failure is ignored. */
+async function refreshDeviceToken() {
+  try {
+    const messaging = await messagingFor({ firebase: globalThis.firebase, mode: "firebase", vapidKey: VAPID_KEY });
+    const registration = messaging && navigator.serviceWorker ? await navigator.serviceWorker.getRegistration() : null;
+    if (!registration) return;
+    await refreshToken({ d: data(), messaging, registration, vapidKey: VAPID_KEY, id: deviceId(), permission: browserEnv().permission });
+  } catch { /* a stale token is not worth bothering anyone about */ }
 }
 
 function showSignin() {
