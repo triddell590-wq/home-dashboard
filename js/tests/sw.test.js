@@ -9,9 +9,9 @@ import { eq, ok, test } from "./harness.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const SCOPE = "https://x.github.io/home-dashboard/";
 
-function loadWorker({ cacheEntries = {}, fetchImpl = async () => { throw new Error("offline"); } } = {}) {
+function loadWorker({ windows = [], cacheEntries = {}, fetchImpl = async () => { throw new Error("offline"); } } = {}) {
   const handlers = {};
-  const calls = { skipWaiting: 0, deleted: [], added: [], claimed: 0 };
+  const calls = { skipWaiting: 0, deleted: [], added: [], claimed: 0, shown: [], opened: [] };
   const store = new Map(Object.entries(cacheEntries));
   const cache = {
     addAll: async (files) => { calls.added.push(...files); },
@@ -19,9 +19,13 @@ function loadWorker({ cacheEntries = {}, fetchImpl = async () => { throw new Err
   };
   const self = {
     addEventListener: (type, fn) => { handlers[type] = fn; },
-    registration: { scope: SCOPE },
+    registration: { scope: SCOPE, showNotification: (title, opts) => { calls.shown.push([title, opts]); return Promise.resolve(); } },
     skipWaiting: () => { calls.skipWaiting++; return Promise.resolve(); },
-    clients: { claim: () => { calls.claimed++; return Promise.resolve(); } },
+    clients: {
+      claim: () => { calls.claimed++; return Promise.resolve(); },
+      matchAll: () => Promise.resolve(windows),
+      openWindow: (url) => { calls.opened.push(url); return Promise.resolve(); },
+    },
   };
   const caches = {
     open: async () => cache,
@@ -32,6 +36,10 @@ function loadWorker({ cacheEntries = {}, fetchImpl = async () => { throw new Err
   const context = vm.createContext({ self, caches, fetch: fetchImpl, Promise, Request });
   vm.runInContext(fs.readFileSync(path.join(root, "sw.js"), "utf8"), context, { filename: "sw.js" });
   return { context, handlers, calls, self };
+}
+
+function fakeWindow(url) {
+  return { url, focused: 0, posted: [], focus() { this.focused++; return Promise.resolve(this); }, postMessage(m) { this.posted.push(m); } };
 }
 
 function fetchEvent(url, over = {}) {
@@ -144,6 +152,68 @@ test("an uncached app file comes from the network; an uncached offline navigatio
   const nav = fetchEvent(SCOPE + "somewhere", { mode: "navigate" });
   off.handlers.fetch(nav);
   eq(await nav.responded, "INDEX");
+});
+
+const SAFE = { tag: "home-day", icon: "icons/icon-192.png" };
+function pushEvent(data) {
+  let waited;
+  return { data, waitUntil: (p) => { waited = p; }, done: () => waited };
+}
+
+test("push shows the sender's title and lines, opening the Calendar by default", async () => {
+  const w = loadWorker();
+  const e = pushEvent({ json: () => ({ data: { title: "Today", body: "Dentist 2pm\nBins out", url: "#/calendar", tag: "home-day" } }) });
+  w.handlers.push(e);
+  await e.done();
+  eq(w.calls.shown, [["Today", { body: "Dentist 2pm\nBins out", ...SAFE, data: { url: "#/calendar" } }]]);
+});
+
+test("push with no payload, plain text, or a foreign url still shows something safe", async () => {
+  const w = loadWorker();
+  const none = pushEvent(undefined);
+  w.handlers.push(none);
+  await none.done();
+  const plain = pushEvent({ json: () => { throw new Error("not json"); }, text: () => "hello" });
+  w.handlers.push(plain);
+  await plain.done();
+  const evil = pushEvent({ json: () => ({ data: { url: "https://evil.example/#/x" } }) });
+  w.handlers.push(evil);
+  await evil.done();
+  const notif = pushEvent({ json: () => ({ notification: { title: "N", body: "b" }, data: { url: "#/lessons" } }) });
+  w.handlers.push(notif);
+  await notif.done();
+  eq(w.calls.shown, [
+    ["Home", { body: "", ...SAFE, data: { url: "#/calendar" } }],
+    ["Home", { body: "hello", ...SAFE, data: { url: "#/calendar" } }],
+    ["Home", { body: "", ...SAFE, data: { url: "#/calendar" } }],
+    ["N", { body: "b", ...SAFE, data: { url: "#/lessons" } }],
+  ]);
+});
+
+function clickEvent(url) {
+  let waited, closed = 0;
+  return { notification: { data: { url }, close: () => { closed++; } }, waitUntil: (p) => { waited = p; }, done: () => waited, closed: () => closed };
+}
+
+test("tapping a reminder focuses the open app and asks it to show the Calendar", async () => {
+  const win = fakeWindow(SCOPE + "index.html#/overview");
+  const w = loadWorker({ windows: [win] });
+  const e = clickEvent("#/calendar");
+  w.handlers.notificationclick(e);
+  await e.done();
+  eq(win.focused, 1);
+  eq(win.posted, [{ type: "open", hash: "#/calendar" }]);
+  eq(w.calls.opened, []);
+  eq(e.closed(), 1);
+});
+
+test("tapping a reminder with no app open opens it at the Calendar", async () => {
+  const w = loadWorker({ windows: [fakeWindow("https://x.github.io/other/")] });
+  const e = clickEvent("#/calendar");
+  w.handlers.notificationclick(e);
+  await e.done();
+  eq(w.calls.opened, [SCOPE + "index.html#/calendar"]);
+  eq(e.closed(), 1);
 });
 
 // ---- update.js ----
