@@ -1,0 +1,28 @@
+# Fetches the Met Office warnings for the dashboard's weather place and writes them to Firestore.
+# It runs no tests and publishes nothing.
+name: Met Office warnings
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: warnings
+  cancel-in-progress: false
+
+jobs:
+  warnings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run warnings
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

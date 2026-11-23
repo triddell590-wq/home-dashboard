@@ -22,6 +22,7 @@ import "./weather-summary.test.js";
 import "./weather-fetch.test.js";
 import "./weather-forecast.test.js";
 import "./weather-text.test.js";
+import "./warnings-tool.test.js";
 
 const result = await run();
 for (const f of result.failures) console.log(`FAIL ${f.name}\n      ${f.error}`);
