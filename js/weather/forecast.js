@@ -22,7 +22,7 @@ function readRecord(place, storage) {
   const raw = store.get(KEY, null, storage);
   if (!isObject(raw) || raw.lat !== place.lat || raw.lon !== place.lon) return null;
   const d = raw.data;
-  const usable = isObject(d) && d.daily && d.hourly && d.current && parseTime(raw.fetchedAt) !== null;
+  const usable = isObject(d) && Array.isArray(d.daily) && Array.isArray(d.hourly) && isObject(d.current) && parseTime(raw.fetchedAt) !== null;
   return { lastAttempt: parseTime(raw.lastAttempt), copy: usable ? { fetchedAt: raw.fetchedAt, data: d } : null };
 }
 

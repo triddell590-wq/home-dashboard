@@ -22,6 +22,7 @@ var FILES = [
   "./js/core/data-memory.js",
   "./js/core/data.js",
   "./js/core/dom.js",
+  "./js/core/issue.js",
   "./js/core/registry.js",
   "./js/core/router.js",
   "./js/core/signout.js",

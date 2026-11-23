@@ -1,19 +1,13 @@
 // Lessons writes. Each runs its checks first, issues the write without awaiting the server (a
 // Firestore write only resolves once the server answers, which offline is never), and returns
 // { ok: true } or { error }. Only a rejected write is reported, through onFail.
+import { issue } from "../core/issue.js";
 import { rateChangePreview } from "./sums.js";
 import {
   checkDay, checkPayment, checkRate, checkLessonSettings, isRealDate, MSG_DATE, MSG_CONFIRM,
 } from "./checks.js";
 
-const FAIL = "Couldn't save — try again";
 const stampOf = (now) => (now instanceof Date ? now.toISOString() : now);
-
-export function issue(write, onFail) {
-  let p;
-  try { p = Promise.resolve(write()); } catch (err) { p = Promise.reject(err); }
-  p.catch(() => { if (onFail) onFail(FAIL); });
-}
 
 export function saveDay(d, date, lessons, note, { today, now, onFail }) {
   const bad = checkDay(date, lessons, today);

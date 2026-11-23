@@ -475,3 +475,19 @@ test("watchLessons fires again when another writer saves a day", async () => {
   await tick();
   eq(seen.length, n);
 });
+
+test("issue lives in core/issue.js and reports only a rejected or throwing write", async () => {
+  const { issue } = await import("../core/issue.js");
+  const msgs = [];
+  issue(() => Promise.resolve(), (m) => msgs.push(m));
+  issue(() => Promise.reject(new Error("x")), (m) => msgs.push(m));
+  issue(() => { throw new Error("y"); }, (m) => msgs.push(m));
+  await tick();
+  eq(msgs, ["Couldn't save — try again", "Couldn't save — try again"]);
+  const fs = await import("node:fs/promises");
+  for (const f of ["lessons/actions.js", "weather/place.js"]) {
+    const src = await fs.readFile(new URL(`../${f}`, import.meta.url), "utf8");
+    ok(src.includes('core/issue.js'), f);
+  }
+  ok(!/export function issue/.test(await fs.readFile(new URL("../lessons/actions.js", import.meta.url), "utf8")));
+});

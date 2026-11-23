@@ -202,7 +202,9 @@ test("warnings older than 6 hours, or for another region, count as unavailable",
 });
 
 test("a broken or foreign forecast copy counts as none", async () => {
-  for (const raw of ["not json", '"a string"', '{"lat":54.97}', JSON.stringify({ lat: 54.97, lon: -2.1, fetchedAt: "x", data: {} })]) {
+  for (const raw of ["not json", '"a string"', '{"lat":54.97}', JSON.stringify({ lat: 54.97, lon: -2.1, fetchedAt: "x", data: {} }),
+    ...[{ daily: "x", hourly: [], current: {} }, { daily: [], hourly: {}, current: {} }, { daily: [], hourly: [], current: [] },
+      { daily: [], hourly: [], current: "x" }].map((data) => JSON.stringify({ lat: 54.97, lon: -2.1, fetchedAt: T0.toISOString(), lastAttempt: T0.toISOString(), data }))]) {
     const f = net(), s = fakeStorage({ "home-weather-forecast": raw });
     const body = await get(f, s);
     eq(f.calls, 1);

@@ -1,6 +1,6 @@
 // The saved place: checks (from put_place in mltrader/web/weather_api.py) and the write to settings/weather.
 import { REGIONS } from "./text.js";
-import { issue } from "../lessons/actions.js";
+import { issue } from "../core/issue.js";
 
 const usable = (v, low, high) => typeof v === "number" && Number.isFinite(v) && v >= low && v <= high;
 
