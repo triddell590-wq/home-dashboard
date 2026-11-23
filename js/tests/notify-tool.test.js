@@ -7,13 +7,17 @@ const UID = "OWNER";
 const P = (rest) => `users/${UID}/${rest}`;
 
 function fakeDb(docs = {}) {
-  const writes = [], deletes = [];
+  const writes = [], deletes = [], log = [];
   return {
-    writes, deletes, docs,
+    writes, deletes, docs, log,
     doc: (p) => ({
+      create: async (v) => {
+        if (p in docs) throw Object.assign(new Error("exists"), { code: 6 });
+        log.push(["create", p]); docs[p] = v;
+      },
       get: async () => ({ exists: p in docs, data: () => docs[p] }),
-      set: async (v) => { writes.push([p, v]); docs[p] = v; },
-      delete: async () => { deletes.push(p); delete docs[p]; },
+      set: async (v) => { writes.push([p, v]); log.push(["set", p]); docs[p] = v; },
+      delete: async () => { deletes.push(p); log.push(["delete", p]); delete docs[p]; },
     }),
     collection: (p) => ({
       get: async () => ({ docs: Object.keys(docs).filter((k) => k.startsWith(`${p}/`) && !k.slice(p.length + 1).includes("/"))
@@ -106,7 +110,8 @@ test("a run where every send fails leaves the day open for the next hour", async
   const res = await run(db, send, now);
   eq([res.status, res.exitCode], ["failed", 1]);
   eq(db.writes.length, 0);
-  eq(db.deletes.length, 0);
+  eq(db.deletes, [P("reminders/2026-11-23")]);
+  ok(!(P("reminders/2026-11-23") in db.docs) && P("devices/a") in db.docs && P("devices/b") in db.docs);
 });
 
 test("a partial failure still records the day, with the error", async () => {
@@ -176,6 +181,73 @@ test("fcmMessage is data-only and opens the Calendar", () => {
 });
 
 test("DEAD matches the FCM codes for a token that will never work again", () => {
-  for (const c of ["messaging/registration-token-not-registered", "messaging/invalid-registration-token", "messaging/invalid-argument"]) ok(DEAD.test(c), c);
-  ok(!DEAD.test("messaging/internal-error") && !DEAD.test("messaging/server-unavailable"));
+  for (const c of ["messaging/registration-token-not-registered", "messaging/invalid-registration-token"]) ok(DEAD.test(c), c);
+  for (const c of ["messaging/invalid-argument", "messaging/internal-error", "messaging/server-unavailable", "messaging/third-party-auth-error"]) ok(!DEAD.test(c), c);
+});
+
+test("a bad-message error (invalid-argument) on every device deletes nothing and fails the run", async () => {
+  const now = new Date("2026-11-23T07:00:00Z");
+  const bad = { ok: false, error: "messaging/invalid-argument", dead: false };
+  const db = fakeDb(seed(now));
+  const res = await run(db, fakeSend({ ta: bad, tb: bad }), now);
+  eq([res.status, res.exitCode], ["failed", 1]);
+  ok(P("devices/a") in db.docs && P("devices/b") in db.docs);
+  ok(!(P("reminders/2026-11-23") in db.docs));
+});
+
+test("when every device is dead nothing is deleted and no record is kept", async () => {
+  const now = new Date("2026-11-23T07:00:00Z");
+  const dead = { ok: false, error: "messaging/registration-token-not-registered", dead: true };
+  const db = fakeDb(seed(now));
+  const res = await run(db, fakeSend({ ta: dead, tb: dead }), now);
+  eq([res.status, res.exitCode], ["failed", 1]);
+  eq(db.deletes.filter((d) => d.includes("devices/")), []);
+  ok(!(P("reminders/2026-11-23") in db.docs));
+});
+
+test("the day is claimed before sending, finalised after, and released if all sends fail", async () => {
+  const now = new Date("2026-11-23T07:00:00Z");
+  const R = P("reminders/2026-11-23");
+  let db = fakeDb(seed(now));
+  const send = async (m) => { send.seen.push([m.token, db.docs[R]?.status]); return { ok: true }; };
+  send.seen = [];
+  await run(db, send, now);
+  eq(send.seen, [["ta", "sending"], ["tb", "sending"]]);
+  eq(db.log[0], ["create", R]);
+  eq(db.docs[R].devices, 2);
+  ok(!("status" in db.docs[R]) || db.docs[R].status !== "sending");
+  db = fakeDb(seed(now));
+  const bad = { ok: false, error: "messaging/internal-error", dead: false };
+  await run(db, fakeSend({ ta: bad, tb: bad }), now);
+  eq(db.log.filter((l) => l[1] === R).map((l) => l[0]), ["create", "delete"]);
+});
+
+test("a claim already made by another run stops this one before sending", async () => {
+  const now = new Date("2026-11-23T07:00:00Z");
+  const db = fakeDb(seed(now)), send = fakeSend();
+  const realGet = db.doc(P("reminders/2026-11-23")).get;
+  // the once-a-day read sees nothing, but the claim finds the other run's document
+  const origDoc = db.doc;
+  db.doc = (p) => { const d = origDoc(p); if (p.includes("reminders/")) { d.get = async () => ({ exists: false }); d.create = async () => { throw Object.assign(new Error("x"), { code: 6 }); }; } return d; };
+  const res = await run(db, send, now);
+  eq(res.status, "done-already");
+  eq(send.calls.length, 0);
+});
+
+test("a dry run does not refresh warnings, so it writes nothing at all", async () => {
+  const now = new Date("2026-11-23T07:00:00Z");
+  let n = 0;
+  const db = fakeDb(seed(now));
+  await run(db, fakeSend(), now, { dryRun: true, refresh: async () => { n++; } });
+  eq(n, 0);
+});
+
+test("a day with items but no devices logs a notice and records devices 0", async () => {
+  const now = new Date("2026-11-23T07:00:00Z");
+  const db = fakeDb({ [P("events/e1")]: seed(now)[P("events/e1")] }), logs = [], send = fakeSend();
+  const res = await run(db, send, now, { log: (m) => logs.push(m) });
+  eq(res.status, "sent");
+  eq(send.calls.length, 0);
+  ok(logs.some((l) => l.startsWith("::notice::") && l.includes("no devices")));
+  eq(db.docs[P("reminders/2026-11-23")], { sentAt: "2026-11-23T07:00:00.000Z", items: ["Dentist 2pm"], count: 1, devices: 0, errors: [] });
 });

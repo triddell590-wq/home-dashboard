@@ -10,7 +10,7 @@ import { recordsFrom } from "../js/lessons/records.js";
 import { ownerUidFromRules } from "../tests/rules/owner.mjs";
 import { refreshWarnings } from "./warnings.mjs";
 
-export const DEAD = /registration-token-not-registered|invalid-registration-token|invalid-argument|not-found|unregistered/i;
+export const DEAD = /registration-token-not-registered|invalid-registration-token/i;
 
 export const fcmMessage = (token, { title, body, url = "#/calendar" }) => ({
   token,
@@ -21,10 +21,12 @@ export const fcmMessage = (token, { title, body, url = "#/calendar" }) => ({
 const asDocs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
 export async function runNotify({ firestore, send, uid, now, dryRun = false, argv = [], log = console.log, refresh }) {
-  try {
-    await (refresh ?? (() => refreshWarnings({ firestore, uid, fetchImpl: fetch, now, log })))();
-  } catch {
-    log("::warning::Met Office warnings couldn't be refreshed");
+  if (!dryRun) {
+    try {
+      await (refresh ?? (() => refreshWarnings({ firestore, uid, fetchImpl: fetch, now, log })))();
+    } catch {
+      log("::warning::Met Office warnings couldn't be refreshed");
+    }
   }
   const base = { sent: 0, removed: [], errors: [] };
   const D = londonDay(now);
@@ -56,21 +58,41 @@ export async function runNotify({ firestore, send, uid, now, dryRun = false, arg
     return { ...base, status: "nothing", digest, exitCode: 0 };
   }
 
+  if (devices.length === 0) {
+    log("::notice::There is something on today, but no device has reminders turned on");
+    await reminderRef.set({ sentAt: now.toISOString(), items: digest.items, count: digest.count, devices: 0, errors: [] });
+    return { ...base, status: "sent", digest, exitCode: 0 };
+  }
+
+  // Claim the day first, so a crash or an overlapping run after the sends can never send twice.
+  try {
+    await reminderRef.create({ status: "sending", claimedAt: now.toISOString() });
+  } catch (e) {
+    if (e && (e.code === 6 || /already.?exists/i.test(String(e.code)))) return { ...base, status: "done-already", exitCode: 0 };
+    throw e;
+  }
   const payload = digestPayload(digest);
-  const removed = [], errors = [];
+  const dead = [], errors = [];
   let sent = 0;
-  for (const dev of devices) {
-    const res = await send(fcmMessage(dev.token, payload));
-    if (res && res.ok) sent++;
-    else if (res && res.dead) { await firestore.doc(`users/${uid}/devices/${dev.id}`).delete(); removed.push(dev.id); }
-    else errors.push({ device: dev.id, error: String((res && res.error) || "unknown").slice(0, 80) });
+  try {
+    for (const dev of devices) {
+      const res = await send(fcmMessage(dev.token, payload));
+      if (res && res.ok) sent++;
+      else if (res && res.dead) dead.push(dev.id);
+      else errors.push({ device: dev.id, error: String((res && res.error) || "unknown").slice(0, 80) });
+    }
+  } catch (e) {
+    await reminderRef.delete();
+    throw e;
   }
-  if (sent === 0 && errors.length) {
+  if (sent === 0) {
+    await reminderRef.delete();
     log("::error::No reminder could be sent; the next hourly run will try again");
-    return { status: "failed", digest, sent, removed, errors, exitCode: 1 };
+    return { status: "failed", digest, sent, removed: [], errors, exitCode: 1 };
   }
+  for (const id of dead) await firestore.doc(`users/${uid}/devices/${id}`).delete();
   await reminderRef.set({ sentAt: now.toISOString(), items: digest.items, count: digest.count, devices: sent, errors });
-  return { status: "sent", digest, sent, removed, errors, exitCode: 0 };
+  return { status: "sent", digest, sent, removed: dead, errors, exitCode: 0 };
 }
 
 async function connectAdmin(json) {
