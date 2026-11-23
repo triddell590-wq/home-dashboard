@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
+    <channel>
+        <title>Met Office warnings for North East England</title>
+        <link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings</link>
+        <description>Weather warnings of severe and extreme weather from the Met Office</description>
+        <language>en-gb</language>
+        <copyright>(c) Crown copyright</copyright>
+        <pubDate>Sat, 21 Nov 2026 10:11:20 GMT</pubDate>
+        <dc:creator>webteam@metoffice.gov.uk</dc:creator>
+        <item>
+            <title>Yellow warning of wind affecting North East England</title>
+            <link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-11-22&amp;id=aaa111</link>
+            <description>Strong winds may cause some disruption. valid from 0600 Sun 22 Nov to 2100 Sun 22 Nov</description>
+            <pubDate>Sat, 21 Nov 2026 09:00:00 GMT</pubDate>
+        </item>
+        <item>
+            <title>Amber warning of rain affecting North East England</title>
+            <link>https://www.metoffice.gov.uk/weather/warnings-and-advice/uk-warnings#?date=2026-11-23&amp;id=bbb222</link>
+            <description>Heavy rain likely to cause flooding.</description>
+            <pubDate>Sat, 21 Nov 2026 09:30:00 GMT</pubDate>
+        </item>
+    </channel>
+</rss>

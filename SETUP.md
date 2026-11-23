@@ -27,5 +27,10 @@ Until you finish, the app runs in test mode and shows "Test mode — nothing is 
 7. **Allow your website address.** In Authentication open **Settings → Authorized domains**, choose **Add domain**, and enter `triddell590-wq.github.io`.
 8. **Switch to the new settings.** Once Claude has committed and published the settings, open the app wherever you already use it and tap **Update** when it says "New version ready". (If it doesn't appear, go to Settings and choose **Check for update**.) The "Test mode" note goes away, and you sign in with the email and password from step 4.
 9. **Put it on your phone.** Open `https://triddell590-wq.github.io/home-dashboard/` in Safari, tap **Share**, then **Add to Home Screen**. Open it from the new icon and sign in once.
+10. **Turn on Met Office warnings.** The Weather tab shows Met Office warnings, which a small job on GitHub fetches every hour. It needs a key to write to your database; you make it once.
+   - In the Firebase console, click the gear icon next to **Project Overview**, choose **Project settings**, open the **Service accounts** tab, and click **Generate new private key**, then **Generate key**. A small file ending in `.json` downloads to your computer.
+   - Open your repository on GitHub, then **Settings → Secrets and variables → Actions → New repository secret**. For **Name** type `FIREBASE_SERVICE_ACCOUNT`. Open the downloaded file in a text editor, select everything in it, and paste it into **Secret**. Click **Add secret**.
+   - Delete the downloaded file from your computer (and empty the bin). The key now lives only in GitHub.
+   - To fetch the warnings straight away, open the repository's **Actions** tab, choose **Met Office warnings**, then **Run workflow**. Until it has run once, the Weather tab says "Met Office warnings unavailable". Nothing else breaks while the key is missing; the job just skips with a note.
 
 To check: sign in on your Mac, set your name in Settings, and open the app on your phone — the name is there.

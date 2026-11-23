@@ -35,6 +35,22 @@ export function keepDayFresh({ show, clock = () => new Date(), doc = document })
   return { setName(text) { name = text; refresh(); }, stop: onVisible(refresh, doc) };
 }
 
+/** Starts each card's own watch (where it has one) so the card redraws when its data changes; the stop ends them all. */
+export function watchCards(specs, refreshers) {
+  const stops = [];
+  specs.forEach((spec, i) => {
+    if (typeof spec.watch !== "function") return;
+    const stop = spec.watch(refreshers[i]);
+    if (typeof stop === "function") stops.push(stop);
+  });
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    for (const stop of stops) stop();
+  };
+}
+
 function mount(container) {
   const now = new Date();
   let alive = true;
@@ -57,6 +73,7 @@ function mount(container) {
     return card;
   });
   for (const card of mounted) card.refresh();
+  const stopCards = watchCards(specs, mounted.map((card) => () => card.refresh()));
 
   const unwatch = data().watch("settings/profile", (profile) => {
     if (alive) day.setName(profile && profile.name);
@@ -70,6 +87,7 @@ function mount(container) {
   return () => {
     alive = false;
     day.stop();
+    stopCards();
     if (typeof unwatch === "function") unwatch();
   };
 }

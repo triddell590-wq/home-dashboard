@@ -1,14 +1,18 @@
 // Browser check: drives headless Chrome over the DevTools protocol (no npm packages).
 // Usage: node tools/browser-check.mjs <base-url> <screenshot-folder>
-// Opens ?backend=memory, signs in with the test user, and for Overview and Settings at 375x812 and
-// 1280x800 in both themes records console errors and horizontal scroll, and saves a screenshot.
+// Opens ?backend=memory, signs in with the test user, seeds a little Lessons and Weather data, and for Overview,
+// Lessons, Weather and Settings at 375x812 and 1280x800 in both themes records console errors and horizontal scroll,
+// and saves a screenshot.
+// Never goes online: Open-Meteo answers come from js/tests/fixtures/weather/ through the DevTools Fetch domain, and any
+// request to another origin is failed and reported as "went online".
 // Also checks, at phone width, that every tap target (sign-in form, each page) is at least 44x44 and that a toast
 // never covers the More sheet; and at both widths that a 40-character unbroken name does not widen the Overview.
 // Exits 1 on any console error, horizontal scroll or failed check. Set CHROME to use another browser binary.
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const [base, outDir] = process.argv.slice(2);
 if (!base || !outDir) { console.error("Usage: node tools/browser-check.mjs <base-url> <screenshot-folder>"); process.exit(2); }
@@ -72,8 +76,21 @@ const { targetId } = await cdp.send("Target.createTarget", { url: "about:blank" 
 const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
 const send = (m, p) => cdp.send(m, p, sessionId);
 let errors = [];
+let online = [];
+const fixture = (name) => readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../js/tests/fixtures/weather", name)).toString("base64");
+const fixtures = { "api.open-meteo.com": fixture("forecast.json"), "geocoding-api.open-meteo.com": fixture("places_hexham.json") };
+const baseOrigin = new URL(base).origin;
 cdp.on((msg) => {
   if (msg.sessionId !== sessionId) return;
+  if (msg.method === "Fetch.requestPaused") {
+    const { requestId, request } = msg.params;
+    const url = new URL(request.url);
+    const answer = (method, params) => send(method, { requestId, ...params }).catch(() => {});
+    if (!/^https?:$/.test(url.protocol) || url.origin === baseOrigin) answer("Fetch.continueRequest");
+    else if (fixtures[url.hostname]) answer("Fetch.fulfillRequest", { responseCode: 200, responseHeaders: [{ name: "content-type", value: "application/json" }, { name: "access-control-allow-origin", value: "*" }], body: fixtures[url.hostname] });
+    else { online.push("went online: " + request.url); answer("Fetch.failRequest", { errorReason: "BlockedByClient" }); }
+    return;
+  }
   if (msg.method === "Runtime.consoleAPICalled" && msg.params.type === "error") errors.push("console.error: " + msg.params.args.map((a) => a.value ?? a.description).join(" "));
   if (msg.method === "Runtime.exceptionThrown") errors.push("exception: " + (msg.params.exceptionDetails.exception?.description || msg.params.exceptionDetails.text));
   if (msg.method === "Log.entryAdded" && msg.params.entry.level === "error") errors.push("log: " + msg.params.entry.text + " " + (msg.params.entry.url || ""));
@@ -81,6 +98,7 @@ cdp.on((msg) => {
 await send("Runtime.enable");
 await send("Log.enable");
 await send("Page.enable");
+await send("Fetch.enable", { patterns: [{ urlPattern: "*" }] });
 
 const evaluate = async (expression) => {
   const r = await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
@@ -130,9 +148,31 @@ const toastOverSheet = () => evaluate(`(() => {
   return over;
 })()`);
 
+// London calendar dates, whatever zone this machine is in.
+const londonToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const daysAgo = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+
+// Seeds through the page's own data module (the same instance the app uses).
+async function seed() {
+  const today = londonToday();
+  await evaluate(`import("./js/core/data.js").then(async ({ data }) => {
+    const d = data();
+    await d.set("lessonRates/2026-01-01", { pence: 1800 });
+    await d.set("settings/lessons", { timetable: [6, 0, 0, 4, 0, 0, 0], trackingSince: "${daysAgo(today, 14)}" });
+    await d.set("lessonDays/${daysAgo(today, 1)}", { lessons: 6, note: "${"W".repeat(40)}", confirmedAt: new Date().toISOString() });
+    await d.set("lessonPayments/p1", { received: "${today}", pence: 5000, month: "${today.slice(0, 7)}", note: "bacs", addedAt: new Date().toISOString() });
+    await d.set("settings/weather", { place: { name: "Hexham", county: "Northumberland", nation: "England", lat: 54.97, lon: -2.1, region: "ne" } });
+    return true;
+  })`);
+}
+const ready = {
+  lessons: [`(document.querySelector("#page h1") || {}).textContent === "Lessons" && !!document.querySelector(".lz-section")`, "Lessons content"],
+  weather: [`(document.querySelector("#page h1") || {}).textContent === "Weather" && (!!document.querySelector(".wx-strip") || document.querySelector("#page").textContent.includes("No forecast available"))`, "Weather content"],
+};
+
 const sizes = [["phone", 375, 812, true], ["desktop", 1280, 800, false]];
 const themes = ["midnight", "daylight"];
-const pages = ["overview", "settings"];
+const pages = ["overview", "lessons", "weather", "settings"];
 const root = base.replace(/\/+$/, "");
 const results = [];
 let scriptId = null;
@@ -144,6 +184,7 @@ for (const theme of themes) {
     await send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile });
     for (const name of pages) {
       errors = [];
+      online = [];
       const problems = [];
       await send("Page.navigate", { url: "about:blank" }); // a hash-only change would not reload the page
       await send("Page.navigate", { url: `${root}/?backend=memory#/${name}` });
@@ -158,8 +199,10 @@ for (const theme of themes) {
         })()`);
         await waitFor(`!document.querySelector('input[name="email"]')`, "sign-in");
       }
+      await seed();
       await evaluate(`location.hash = "#/${name}"`);
       await waitFor(`location.hash === "#/${name}" && document.querySelector("#page").children.length > 0`, name + " content");
+      if (ready[name]) await waitFor(...ready[name]);
       await evaluate(`document.fonts ? document.fonts.ready.then(() => true) : true`);
       await new Promise((r) => setTimeout(r, 400));
       const m = await evaluate(`({ theme: document.documentElement.dataset.theme, sw: document.documentElement.scrollWidth, iw: innerWidth, title: (document.querySelector("#page h1") || {}).textContent || "" })`);
@@ -167,6 +210,7 @@ for (const theme of themes) {
       const file = `${name}-${sizeName}-${theme}.png`;
       writeFileSync(join(outDir, file), Buffer.from(shot.data, "base64"));
       const hscroll = m.sw > width; // not innerWidth, which grows with the content on a phone
+      problems.push(...online);
       if (mobile) {
         problems.push(...await phoneProblems(name));
         if (await toastOverSheet()) problems.push("a toast covers the More sheet");

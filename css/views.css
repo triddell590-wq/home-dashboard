@@ -122,3 +122,7 @@
 .lz-card p { margin: 0; }
 .card.lessons-card.level-amber { border-color: var(--warn); box-shadow: var(--shadow), 0 0 0 1px var(--warn); }
 @media (max-width: 700px) { .card.lz-section .table { display: block; overflow-x: auto; } }
+@media (max-width: 699px) {
+  .lz-week { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .lz-form > * { flex: 1 1 100%; }
+}

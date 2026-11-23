@@ -26,3 +26,14 @@ test("a duplicate id is refused", () => {
   }
   ok(message === "duplicate id: money", `got "${message}"`);
 });
+
+test("settings cards come back in order", () => {
+  const r = createRegistry();
+  r.registerSettingsCard({ id: "weather", order: 20 }); r.registerSettingsCard({ id: "lessons", order: 30 });
+  eq(r.settingsCards().map((c) => c.id), ["weather", "lessons"]);
+  r.registerSettingsCard({ id: "a", order: 5 });
+  eq(r.settingsCards().map((c) => c.id), ["a", "weather", "lessons"]);
+  let threw = false;
+  try { r.registerSettingsCard({ id: "a" }); } catch { threw = true; }
+  ok(threw, "duplicate id refused");
+});

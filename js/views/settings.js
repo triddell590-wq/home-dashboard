@@ -5,6 +5,7 @@ import { auth } from "../core/auth.js";
 import { data } from "../core/data.js";
 import { depsFor, signOutFlow } from "../core/signout.js";
 import { el, toast } from "../core/dom.js";
+import { settingsCards } from "../core/registry.js";
 import { currentTheme, setTheme } from "../core/theme.js";
 
 export const tab = { id: "settings", label: "Settings", order: 90, foot: true, mount };
@@ -50,6 +51,7 @@ function mount(container) {
     });
   });
   grid.append(form);
+  const stopCards = settingsCards().map((spec) => spec.mount(grid, () => alive));
   // Watching (not get) fills the field from the local copy, supplies the merge base, and makes unsynced writes count as pending.
   const unwatch = data().watch("settings/profile", (p) => {
     profile = p || {};
@@ -91,5 +93,5 @@ function mount(container) {
   grid.append(el("section", { class: "card half static" }, el("div", { class: "label" }, "About"),
     el("p", { class: "sub" }, `Version ${VERSION}`), el("div", { class: "actions" }, check), updateStatus));
 
-  return () => { alive = false; if (typeof unwatch === "function") unwatch(); window.removeEventListener("themechange", onTheme); };
+  return () => { alive = false; for (const stop of stopCards) if (typeof stop === "function") stop(); if (typeof unwatch === "function") unwatch(); window.removeEventListener("themechange", onTheme); };
 }

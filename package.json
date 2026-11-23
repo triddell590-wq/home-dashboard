@@ -7,11 +7,13 @@
   "scripts": {
     "test": "node js/tests/run-node.mjs",
     "test:rules": "node tests/rules/run.mjs",
-    "test:helpers": "node tests/rules/helpers.test.mjs"
+    "test:helpers": "node tests/rules/helpers.test.mjs",
+    "warnings": "node tools/warnings.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "3.0.4",
     "firebase": "10.14.1",
+    "firebase-admin": "13.10.0",
     "firebase-tools": "15.35.0"
   }
 }

@@ -20,7 +20,8 @@ Then open `http://127.0.0.1:8790/?backend=memory` and sign in as `test@example.c
 - Page tests in the browser, including the DOM tests: serve the folder as above and open `/tests.html`
 - Rules tests (Firestore emulator, needs Java): `npm run test:rules`. Without Java it says so and passes; GitHub runs them for real. First run `npm ci`.
 - Rules helper tests: `npm run test:helpers`
-- Browser check, with a local server running: `node tools/browser-check.mjs http://127.0.0.1:8790 <screenshot-folder>`. It drives headless Chrome (Playwright's `chromium_headless_shell` if installed, otherwise Google Chrome; or set `CHROME`), checks Overview and Settings at 375x812 and 1280x800 in both themes, saves 8 screenshots, and exits 1 on a console error, sideways scrolling (also with a 40-character name), a tap target under 44x44 at phone width, or a toast over the More sheet.
+- Met Office warnings job: `npm run warnings` runs `tools/warnings.mjs` (GitHub runs it hourly via `.github/workflows/warnings.yml`; it needs the `FIREBASE_SERVICE_ACCOUNT` secret and otherwise skips with a notice). `npm test` covers it offline with fakes.
+- Browser check, with a local server running: `node tools/browser-check.mjs http://127.0.0.1:8790 <screenshot-folder>`. It drives headless Chrome (Playwright's `chromium_headless_shell` if installed, otherwise Google Chrome; or set `CHROME`), checks Overview, Lessons, Weather and Settings at 375x812 and 1280x800 in both themes (seeding test data on the memory backend; Open-Meteo answers come from the repo's fixtures and any other outside request fails the check), saves 16 screenshots, and exits 1 on a console error, sideways scrolling (also with a 40-character name), a tap target under 44x44 at phone width, or a toast over the More sheet.
 
 ## Publishing
 
