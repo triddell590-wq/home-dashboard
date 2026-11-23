@@ -30,6 +30,7 @@
     import "./js/tests/lessons-data.test.js";
     import "./js/tests/lessons-text.test.js";
     import "./js/tests/weather-summary.test.js";
+    import "./js/tests/weather-text.test.js";
 
     const result = await run();
     const lines = result.failures.map((f) => `FAIL ${f.name}\n      ${f.error}`);

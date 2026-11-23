@@ -48,6 +48,7 @@ var FILES = [
   "./js/views/overview.js",
   "./js/views/settings.js",
   "./js/views/signin.js",
+  "./js/views/weather.js",
   "./vendor/firebase-app-compat.js",
   "./vendor/firebase-auth-compat.js",
   "./vendor/firebase-firestore-compat.js",

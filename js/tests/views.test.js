@@ -180,3 +180,38 @@ test("the rate flow previews and saves from the live records at the moment of sa
   try { await flow.submit(0, "2026-11-01"); } catch (e) { bad = e.message; }
   ok(bad && bad.includes("rate"), "bad rate message");
 });
+
+test("the Weather view uses innerHTML only for its fixed icon table", async () => {
+  const url = new URL("../views/weather.js", import.meta.url);
+  const source = typeof document === "undefined" ? await (await import("node:fs/promises")).readFile(url, "utf8")
+    : await (await fetch(url)).text();
+  eq((source.match(/innerHTML/g) || []).length, 1);
+  ok(/svg\.innerHTML = WEATHER_ICONS\[/.test(source), "the one innerHTML is the icon table");
+  ok(!/html\s*:/.test(source), "uses the el html option");
+});
+
+test("loadWeather shares one fetch between the card, the day phrase and the tab", async () => {
+  if (typeof document !== "undefined") return;               // reads a fixture with node:fs
+  const { readFileSync } = await import("node:fs");
+  const { createMemoryData } = await import("../core/data-memory.js");
+  const { useData, startData, data } = await import("../core/data.js");
+  const { loadWeather } = await import("../views/weather.js");
+  useData(createMemoryData());
+  startData("u1");
+  await data().set("settings/weather", { place: { name: "Hexham", county: "Northumberland", nation: "England", lat: 54.97, lon: -2.1, region: "ne" } });
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls++;
+    return { ok: true, status: 200, text: async () => readFileSync(new URL("./fixtures/weather/forecast.json", import.meta.url), "utf8") };
+  };
+  const store = new Map();
+  const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => { store.set(k, String(v)); } };
+  const now = new Date("2026-11-21T12:00:00Z");
+  const [a, b, c] = await Promise.all([1, 2, 3].map(() => loadWeather({ force: false, fetchImpl, storage, now })));
+  eq(calls, 1);
+  eq([a.place.name, b.place.name, c.place.name], ["Hexham", "Hexham", "Hexham"]);
+  ok(a.summary.days.length > 0);
+  eq(a.warnings_ok, false);
+  await data().set("settings/weather", {});
+  eq((await loadWeather({ force: false, fetchImpl, storage, now })).place, null);
+});
