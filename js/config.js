@@ -7,3 +7,6 @@ export const FIREBASE_CONFIG = {
   messagingSenderId: "183641276415",
   appId: "1:183641276415:web:1fb81db510e923cbd931ca",
 };
+
+// The public Web Push (VAPID) key from SETUP.md step 11. Public by design, safe to commit. Empty until that step is done.
+export const VAPID_KEY = "";

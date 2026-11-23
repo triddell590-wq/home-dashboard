@@ -8,7 +8,8 @@
     "test": "node js/tests/run-node.mjs",
     "test:rules": "node tests/rules/run.mjs",
     "test:helpers": "node tests/rules/helpers.test.mjs",
-    "warnings": "node tools/warnings.mjs"
+    "warnings": "node tools/warnings.mjs",
+    "notify": "node tools/notify.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "3.0.4",

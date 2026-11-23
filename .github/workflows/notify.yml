@@ -1,0 +1,36 @@
+# Morning reminders. cron-job.org starts this every hour on the hour (SETUP.md step 11); GitHub's own
+# schedule is a backup, because it can run hours late. The sender sends at most once per London day.
+name: Morning reminders
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (print today's reminder, send nothing)"
+        type: boolean
+        default: false
+  schedule:
+    - cron: "5 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notify
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - run: npm ci --ignore-scripts
+      - run: node tools/notify.mjs ${{ inputs.dry_run == true && '--dry-run --any-time' || '' }}
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

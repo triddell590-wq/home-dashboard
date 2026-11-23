@@ -33,4 +33,26 @@ Until you finish, the app runs in test mode and shows "Test mode — nothing is 
    - Delete the downloaded file from your computer (and empty the bin). The key now lives only in GitHub.
    - To fetch the warnings straight away, open the repository's **Actions** tab, choose **Met Office warnings**, then **Run workflow**. Until it has run once, the Weather tab says "Met Office warnings unavailable". Nothing else breaks while the key is missing; the job just skips with a note.
 
+11. **Turn on morning reminders.** At 7am London time the app can send a notification to your phone on days with something on. You do a few one-time steps; menu names on these websites drift a little, so look for the closest match.
+   - **a. The public push key.** In the Firebase console, open your project, click the gear icon next to **Project Overview**, choose **Project settings**, and open the **Cloud Messaging** tab. Check that **Firebase Cloud Messaging API (V1)** says *Enabled*. Further down, under **Web configuration**, find **Web Push certificates** and click **Generate key pair**. Copy the long key it shows (it starts with `B`) and send the key to Claude, who puts it in `js/config.js` and commits it. It is public, like the other settings in that file.
+   - **b. The private key.** If you did step 10, the GitHub secret `FIREBASE_SERVICE_ACCOUNT` already exists, so skip this. Otherwise follow step 10's first three bullets (generate the key file, paste it into a new repository secret with that exact name, delete the file). Never paste it into a chat.
+   - **c. A GitHub token that can only start this job.**
+     - On github.com, click your picture (top right) → **Settings** → at the bottom of the left menu **Developer settings** → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**.
+     - **Token name:** `cron-job.org reminders`. For **Expiration** pick the longest offered, and put the expiry date in your calendar so you can renew it.
+     - Under **Repository access** choose **Only select repositories**, then pick `home-dashboard`.
+     - Under **Permissions** → **Repository permissions**, set **Actions** to **Read and write**. Leave everything else at *No access* (GitHub adds *Metadata: Read-only* by itself).
+     - Click **Generate token** and copy it straight away; GitHub shows it only once.
+   - **d. The hourly timer on cron-job.org (free).**
+     - Sign up at cron-job.org, then click **Create cronjob**.
+     - **Title:** `Home dashboard reminders`.
+     - **URL:** `https://api.github.com/repos/triddell590-wq/home-dashboard/actions/workflows/notify.yml/dispatches`
+     - **Execution schedule:** choose **Custom**, set minutes to `0` and every hour, every day, and set **Time zone** to `Europe/London`.
+     - Open the **Advanced** tab. **Request method:** `POST`. Under **Headers** add `Authorization` with the value `Bearer ` followed by your token, and `Accept` with the value `application/vnd.github+json`. **Request body:** `{"ref":"main"}`
+     - Turn on **Notify me on failure** (the email option under the job's notification settings) so cron-job.org emails you if the timer ever stops working.
+     - Save, then click **Test run**. A good answer is **204 No Content**, and a "Morning reminders" run appears in the repository's **Actions** tab.
+   - **e. On each device.** On the iPhone, open the dashboard from its Home Screen icon (step 9) → **Settings** → **Reminders** → **Turn on reminders on this device** → **Allow**. On the Mac, do the same in the browser you use.
+   - To check: on GitHub open **Actions** → **Morning reminders** → **Run workflow**, tick **Dry run**, and run it; the log shows today's reminder. Nothing is sent before 7am or after 9pm London time, and never twice in a day.
+
+**If reminders stop.** GitHub turns off scheduled jobs in a repository that has had no activity for 60 days, and then the reminder job stops too. To fix it: on github.com open `home-dashboard` → **Actions** → **Morning reminders** → press **Enable workflow**. If a banner says the workflow is disabled, that is the button to press. Making any change to the repository (even a small one) also resets the 60 days.
+
 To check: sign in on your Mac, set your name in Settings, and open the app on your phone — the name is there.

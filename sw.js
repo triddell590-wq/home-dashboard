@@ -39,11 +39,18 @@ var FILES = [
   "./js/lessons/actions.js",
   "./js/lessons/csv.js",
   "./js/lessons/text.js",
+  "./js/calendar/parse.js",
+  "./js/calendar/occurrences.js",
+  "./js/calendar/events.js",
+  "./js/calendar/text.js",
+  "./js/calendar/digest.js",
+  "./js/calendar/push.js",
   "./js/weather/text.js",
   "./js/weather/summary.js",
   "./js/weather/open-meteo.js",
   "./js/weather/place.js",
   "./js/weather/forecast.js",
+  "./js/views/calendar.js",
   "./js/views/lessons.js",
   "./js/views/overview.js",
   "./js/views/settings.js",
@@ -52,6 +59,7 @@ var FILES = [
   "./vendor/firebase-app-compat.js",
   "./vendor/firebase-auth-compat.js",
   "./vendor/firebase-firestore-compat.js",
+  "./vendor/firebase-messaging-compat.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/maskable-512.png",
@@ -107,4 +115,51 @@ self.addEventListener("fetch", function (event) {
   var request = event.request;
   if (request.method !== "GET" || !isAppRequest(request.url, self.registration.scope)) return;
   event.respondWith(answer(request));
+});
+
+/** What to show for a push. Merges the payload, its notification and its data; anything odd falls back to a safe default. */
+function pushContent(json) {
+  var j = json && typeof json === "object" ? json : {};
+  var parts = [j, j.notification, j.data];
+  function pick(key, fallback) {
+    var value = fallback;
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (p && typeof p === "object" && typeof p[key] === "string" && p[key] !== "") value = p[key];
+    }
+    return value;
+  }
+  var url = pick("url", "#/calendar");
+  if (!/^#\/[a-z-]+$/.test(url)) url = "#/calendar";
+  return { title: pick("title", "Home"), body: pick("body", ""), tag: pick("tag", "home-day"), url: url };
+}
+
+self.addEventListener("push", function (event) {
+  var json = null;
+  if (event.data) {
+    try { json = event.data.json(); }
+    catch (err) {
+      var text = "";
+      try { text = event.data.text(); } catch (err2) { text = ""; }
+      json = { body: text };
+    }
+  }
+  var c = pushContent(json);
+  event.waitUntil(self.registration.showNotification(c.title, { body: c.body, tag: c.tag, icon: "icons/icon-192.png", data: { url: c.url } }));
+});
+
+self.addEventListener("notificationclick", function (event) {
+  event.notification.close();
+  var hash = event.notification.data && event.notification.data.url;
+  if (typeof hash !== "string" || !/^#\/[a-z-]+$/.test(hash)) hash = "#/calendar";
+  var scope = self.registration.scope;
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (windows) {
+    for (var i = 0; i < windows.length; i++) {
+      if (String(windows[i].url).indexOf(scope) === 0) {
+        var win = windows[i];
+        return Promise.resolve(win.focus()).then(function () { win.postMessage({ type: "open", hash: hash }); });
+      }
+    }
+    return self.clients.openWindow(scope + "index.html" + hash);
+  }));
 });

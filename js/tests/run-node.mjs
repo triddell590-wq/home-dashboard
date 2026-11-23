@@ -22,7 +22,14 @@ import "./weather-summary.test.js";
 import "./weather-fetch.test.js";
 import "./weather-forecast.test.js";
 import "./weather-text.test.js";
+import "./calendar-parse.test.js";
+import "./calendar-occurrences.test.js";
+import "./calendar-events.test.js";
+import "./calendar-text.test.js";
+import "./calendar-digest.test.js";
+import "./calendar-push.test.js";
 import "./warnings-tool.test.js";
+import "./notify-tool.test.js";
 
 const result = await run();
 for (const f of result.failures) console.log(`FAIL ${f.name}\n      ${f.error}`);

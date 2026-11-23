@@ -31,6 +31,12 @@
     import "./js/tests/lessons-text.test.js";
     import "./js/tests/weather-summary.test.js";
     import "./js/tests/weather-text.test.js";
+    import "./js/tests/calendar-parse.test.js";
+    import "./js/tests/calendar-occurrences.test.js";
+    import "./js/tests/calendar-events.test.js";
+    import "./js/tests/calendar-text.test.js";
+    import "./js/tests/calendar-digest.test.js";
+    import "./js/tests/calendar-push.test.js";
 
     const result = await run();
     const lines = result.failures.map((f) => `FAIL ${f.name}\n      ${f.error}`);

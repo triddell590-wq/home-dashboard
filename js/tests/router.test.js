@@ -53,3 +53,11 @@ test("the remembered route drops one-off actions like ?new=", async () => {
   eq(rememberedRoute("#/research/NVDA"), "#/research/NVDA");
   eq(rememberedRoute(""), "#/overview");
 });
+
+test("hashFromMessage accepts only the service worker's open message with a plain hash", async () => {
+  const { hashFromMessage } = await import("../core/router.js");
+  eq(hashFromMessage({ type: "open", hash: "#/calendar" }), "#/calendar");
+  eq(hashFromMessage({ type: "open", hash: "#/weather-now" }), "#/weather-now");
+  for (const bad of [{ type: "open", hash: "#/Calendar" }, { type: "open", hash: "#/a/b" }, { type: "open", hash: "https://x.test" }, { type: "open", hash: "#/a?b" },
+    { type: "other", hash: "#/calendar" }, { type: "open" }, null, "x", { type: "open", hash: 5 }]) eq(hashFromMessage(bad), null);
+});

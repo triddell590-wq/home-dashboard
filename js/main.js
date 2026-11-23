@@ -1,6 +1,6 @@
 // Starts the dashboard: picks the backends, waits to learn who is signed in, then shows either the sign-in
 // screen or the app (sidebar, phone tab bar, router).
-import { FIREBASE_CONFIG } from "./config.js";
+import { FIREBASE_CONFIG, VAPID_KEY } from "./config.js";
 import { auth, useAuth } from "./core/auth.js";
 import { createFirebaseAuth } from "./core/auth-firebase.js";
 import { createMemoryAuth } from "./core/auth-memory.js";
@@ -16,15 +16,18 @@ import { startSyncStatus } from "./core/sync-status.js";
 import { buildTabbar } from "./core/tabbar.js";
 import { applySavedTheme, currentTheme, toggleTheme } from "./core/theme.js";
 import { applyUpdate, checkWhenVisible, shouldRegisterWorker, watchForUpdate } from "./core/update.js";
+import * as calendar from "./views/calendar.js";
 import * as lessons from "./views/lessons.js";
 import * as overview from "./views/overview.js";
 import * as settings from "./views/settings.js";
 import * as weather from "./views/weather.js";
 import { mountSignin } from "./views/signin.js";
+import { browserEnv, deviceId, messagingFor, refreshToken, whenActive } from "./calendar/push.js";
 import { WEATHER_ICONS } from "./weather/text.js";
 
 const ICONS = {
   overview: '<rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/>',
+  calendar: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>',
   lessons: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
   weather: WEATHER_ICONS.cloud,
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
@@ -45,7 +48,8 @@ const $ = (id) => document.getElementById(id);
 const rail = document.querySelector(".rail");
 const page = $("page");
 
-for (const view of [overview, weather, lessons, settings]) registerTab(view.tab);
+for (const view of [overview, calendar, weather, lessons, settings]) registerTab(view.tab);
+calendar.registerCalendar({ registerCard, registerDayPart, registerSettingsCard });
 lessons.registerLessons({ registerCard, registerDayPart, registerSettingsCard });
 weather.registerWeather({ registerCard, registerDayPart, registerSettingsCard });
 
@@ -111,7 +115,18 @@ function showApp(user) {
   tabbar.hidden = false;
   stopSync = startSyncStatus($("sync"), data());
   started = true;
+  if (chooseBackend(location.search, FIREBASE_CONFIG) === "firebase") refreshDeviceToken();
   return router.start(page, tabs(), (id) => { markRail(id); markBar(id); });
+}
+
+/** Keeps this device's reminder token current (it can change). Quiet: any failure is ignored. */
+async function refreshDeviceToken() {
+  try {
+    const messaging = await messagingFor({ firebase: globalThis.firebase, mode: "firebase", vapidKey: VAPID_KEY });
+    const registration = messaging && navigator.serviceWorker ? await navigator.serviceWorker.getRegistration() : null;
+    if (!registration) return;
+    await refreshToken({ d: data(), messaging, registration, ready: () => whenActive(navigator.serviceWorker), vapidKey: VAPID_KEY, id: deviceId(), permission: browserEnv().permission });
+  } catch { /* a stale token is not worth bothering anyone about */ }
 }
 
 function showSignin() {
@@ -176,3 +191,4 @@ function registerWorker() {
   }).catch((err) => console.error("Offline copy unavailable", err));
 }
 registerWorker();
+router.listenForOpen();   // a tapped reminder asks this window to open a tab (sw.js posts {type:"open", hash})

@@ -27,6 +27,23 @@ export function rememberedRoute(hash) {
   return hashFor(r.view, r.arg);
 }
 
+/** The hash from the service worker's {type:"open", hash} message (a tapped notification), or null unless it is `#/` and lowercase letters or hyphens only. */
+export function hashFromMessage(message) {
+  if (!message || typeof message !== "object" || message.type !== "open") return null;
+  return typeof message.hash === "string" && /^#\/[a-z-]+$/.test(message.hash) ? message.hash : null;
+}
+
+/** Moves to the tab a notification asked for. Returns stop(). */
+export function listenForOpen(target = globalThis.navigator && navigator.serviceWorker) {
+  if (!target || typeof target.addEventListener !== "function") return () => {};
+  const onMessage = (event) => {
+    const hash = hashFromMessage(event && event.data);
+    if (hash) location.hash = hash;
+  };
+  target.addEventListener("message", onMessage);
+  return () => target.removeEventListener("message", onMessage);
+}
+
 let state = null;
 
 export function go(view, arg = null, query = {}) {

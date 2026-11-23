@@ -1,10 +1,13 @@
 // Browser check: drives headless Chrome over the DevTools protocol (no npm packages).
 // Usage: node tools/browser-check.mjs <base-url> <screenshot-folder>
-// Opens ?backend=memory, signs in with the test user, seeds a little Lessons and Weather data, and for Overview,
-// Lessons, Weather and Settings at 375x812 and 1280x800 in both themes records console errors and horizontal scroll,
+// Opens ?backend=memory, signs in with the test user, seeds a little Lessons, Weather and Calendar data, and for
+// Overview, Calendar, Lessons, Weather and Settings at 375x812 and 1280x800 in both themes records console errors and horizontal scroll,
 // and saves a screenshot.
 // Never goes online: Open-Meteo answers come from js/tests/fixtures/weather/ through the DevTools Fetch domain, and any
 // request to another origin is failed and reported as "went online".
+// On the Calendar it also types "dentist tuesday 2pm" into the Add box and waits for the preview and an enabled Save,
+// and (phone) checks the month headings are single letters; the seeded 80-character title is covered by the sideways
+// scroll check. Settings must say "Reminders aren't set up yet".
 // Also checks, at phone width, that every tap target (sign-in form, each page) is at least 44x44 and that a toast
 // never covers the More sheet; and at both widths that a 40-character unbroken name does not widen the Overview.
 // Exits 1 on any console error, horizontal scroll or failed check. Set CHROME to use another browser binary.
@@ -161,18 +164,26 @@ async function seed() {
     await d.set("settings/lessons", { timetable: [6, 0, 0, 4, 0, 0, 0], trackingSince: "${daysAgo(today, 14)}" });
     await d.set("lessonDays/${daysAgo(today, 1)}", { lessons: 6, note: "${"W".repeat(40)}", confirmedAt: new Date().toISOString() });
     await d.set("lessonPayments/p1", { received: "${today}", pence: 5000, month: "${today.slice(0, 7)}", note: "bacs", addedAt: new Date().toISOString() });
+    const now = new Date().toISOString();
+    const ev = (title, kind, date, time, extra) => ({ title, kind, date, time, repeat: null, until: null, skipped: [], done: [], note: "", createdAt: now, updatedAt: now, ...extra });
+    await d.set("events/c1", ev("Dentist", "appointment", "${today}", "14:00"));
+    await d.set("events/c2", ev("Bins", "appointment", "${today}", null, { repeat: { unit: "week", every: 1, monthly: null } }));
+    await d.set("events/c3", ev("Car tax", "deadline", "${daysAgo(today, 2)}", null));
+    await d.set("events/c4", ev("${"W".repeat(80)}", "appointment", "${daysAgo(today, -1)}", null));
     await d.set("settings/weather", { place: { name: "Hexham", county: "Northumberland", nation: "England", lat: 54.97, lon: -2.1, region: "ne" } });
     return true;
   })`);
 }
 const ready = {
+  calendar: [`(document.querySelector("#page h1") || {}).textContent === "Calendar" && document.querySelector("#page").textContent.includes("Coming up") && document.querySelector("#page").textContent.includes("${"W".repeat(80)}")`, "Calendar content"],
+  settings: [`document.querySelector("#page").textContent.includes("Reminders aren't set up yet")`, "the Reminders card"],
   lessons: [`(document.querySelector("#page h1") || {}).textContent === "Lessons" && !!document.querySelector(".lz-section")`, "Lessons content"],
   weather: [`(document.querySelector("#page h1") || {}).textContent === "Weather" && (!!document.querySelector(".wx-strip") || document.querySelector("#page").textContent.includes("No forecast available"))`, "Weather content"],
 };
 
 const sizes = [["phone", 375, 812, true], ["desktop", 1280, 800, false]];
 const themes = ["midnight", "daylight"];
-const pages = ["overview", "lessons", "weather", "settings"];
+const pages = ["overview", "calendar", "lessons", "weather", "settings"];
 const root = base.replace(/\/+$/, "");
 const results = [];
 let scriptId = null;
@@ -214,6 +225,16 @@ for (const theme of themes) {
       if (mobile) {
         problems.push(...await phoneProblems(name));
         if (await toastOverSheet()) problems.push("a toast covers the More sheet");
+      }
+      if (name === "calendar") {
+        await evaluate(`(() => { const i = document.querySelector(".cal-box"); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(i, "dentist tuesday 2pm"); i.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+        await waitFor(`(document.querySelector(".cal-preview .cal-line") || {}).textContent?.startsWith("Dentist — ") && !!document.querySelector(".cal-preview .btn.primary") && !document.querySelector(".cal-preview .btn.primary").disabled`, "the Add preview and an enabled Save");
+        if (mobile) {
+          const heads = await evaluate(`[...document.querySelectorAll(".cal-dow")].map((n) => [...n.children].filter((c) => getComputedStyle(c).display !== "none").map((c) => c.textContent).join("")).join("")`);
+          if (!/^[A-Za-z]{7}$/.test(heads)) problems.push(`month headings are not single letters: "${heads}"`);
+        }
+        problems.push(...(mobile ? await phoneProblems("calendar with preview") : []));
+        if (await scrollWidth() > width) problems.push("the Add preview widens the page");
       }
       if (name === "overview") {
         const sw = await longNameWidth();
