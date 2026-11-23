@@ -344,3 +344,61 @@ test("the forecast error card uses plain wording, never the raw error text", asy
   eq(failText(new Error("Couldn't get the forecast right now")), plain);
   eq(failText(null), plain);
 });
+
+// ---- Calendar tab, Overview card and "Your day"
+test("previewState shows what was understood and needs a date to save", async () => {
+  const { previewState } = await import("../views/calendar.js");
+  const { parse } = await import("../calendar/parse.js");
+  eq(previewState("dentist tuesday 2pm", "2026-11-23"), { fields: parse("dentist tuesday 2pm", "2026-11-23"), line: "Dentist — Tue 24 Nov, 2pm", canSave: true });
+  eq(previewState("buy milk", "2026-11-23").canSave, false);
+  eq(previewState("tuesday", "2026-11-23").canSave, false);   // no title
+  eq(previewState("bins every other tuesday", "2026-11-23").line, "Bins — every other Tuesday, from Tue 24 Nov");
+});
+
+test("the preview marks every guess the parser was unsure about", async () => {
+  const { unsureNotes } = await import("../views/calendar.js");
+  const { parse } = await import("../calendar/parse.js");
+  eq(unsureNotes(parse("meet jo at 5:30", "2026-11-23")), ["Is 5:30pm right?"]);
+  eq(unsureNotes(parse("tidy garden every spring", "2026-11-23")), ["Check the date"]);
+  eq(unsureNotes(parse("tuesday", "2026-11-23")), ["Add a title"]);
+  eq(unsureNotes(parse("dentist tuesday 2pm", "2026-11-23")), []);
+});
+
+test("the Overview card lists today, then deadlines due in the next 3 days, and flags overdue", async () => {
+  const { cardModel } = await import("../views/calendar.js");
+  const ev = (over) => ({ id: "e", title: "X", kind: "job", date: "2026-11-23", time: null, repeat: null, until: null, skipped: [], done: [], note: "", ...over });
+  const m = cardModel([
+    ev({ id: "a", title: "Dentist", kind: "appointment", time: "14:00" }),
+    ev({ id: "b", title: "Tax", kind: "deadline", date: "2026-11-26" }),
+    ev({ id: "c", title: "Later", kind: "deadline", date: "2026-11-27" }),
+    ev({ id: "d", title: "Old", kind: "deadline", date: "2026-11-20" }),
+    ev({ id: "f", title: "Done", kind: "deadline", date: "2026-11-24", done: ["2026-11-24"] }),
+  ], { days: {}, settings: null }, "2026-11-23");
+  eq(m.today.map((o) => o.title), ["Dentist"]);
+  eq(m.soon.map((o) => o.title), ["Tax"]);
+  eq(m.overdue.map((o) => o.title), ["Old"]);
+  eq(m.empty, false);
+  eq(cardModel([], null, "2026-11-23").empty, true);
+});
+
+test("the Calendar view places text only with textContent", async () => {
+  const view = await sourceOf("../views/calendar.js");
+  ok(!/innerHTML/.test(view), "uses innerHTML");
+  ok(!/html\s*:/.test(view), "uses the el html option");
+});
+
+test("the calendar card and day part are registered in the right places", async () => {
+  const { registerCalendar } = await import("../views/calendar.js");
+  const { createRegistry } = await import("../core/registry.js");
+  const r = createRegistry();
+  registerCalendar({ registerCard: r.registerCard, registerDayPart: r.registerDayPart, registerSettingsCard: r.registerSettingsCard });
+  eq(r.cards().map((c) => [c.id, c.order, c.size, c.title]), [["calendar", 20, "small", "Calendar"]]);
+  eq(r.dayParts().map((p) => [p.id, p.order]), [["calendar", 10]]);
+  eq(r.cards()[0].empty({ empty: true }), "Nothing on today");
+  eq(r.cards()[0].empty({ empty: false }), null);
+});
+
+test("the Calendar tab is the second tab", async () => {
+  const { tab } = await import("../views/calendar.js");
+  eq([tab.id, tab.label, tab.icon, tab.order], ["calendar", "Calendar", "calendar", 20]);
+});

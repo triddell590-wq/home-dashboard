@@ -126,3 +126,60 @@
   .lz-week { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .lz-form > * { flex: 1 1 100%; }
 }
+
+/* Calendar */
+.cal-data { grid-column: 1 / -1; }
+.cal-add .cal-box { margin: 10px 0 0; }
+.cal-preview:not(:empty) { margin-top: 12px; }
+.cal-sheet[hidden], .cal-form [hidden] { display: none; }
+.cal-data > .sub { grid-column: 1 / -1; }
+.cal-line { margin: 0 0 6px; font-size: 17px; overflow-wrap: anywhere; }
+.cal-unsure { display: grid; gap: 4px; }
+.cal-note { margin: 0; padding: 6px 10px; border-left: 3px solid var(--warn); color: var(--warn); font-size: 13px; }
+.cal-error { color: var(--down); margin: 8px 0 0; }
+.cal-error:empty { display: none; }
+.cal-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; align-items: end; margin-top: 10px; }
+.cal-fields .cal-wide { grid-column: 1 / -1; }
+.cal-time { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.cal-check { display: flex; align-items: center; gap: 8px; min-height: 44px; white-space: nowrap; }
+.cal-check input, .cal-tick input { width: 22px; height: 22px; }
+.cal-every { grid-template-columns: auto 5em minmax(0, 1fr); align-items: center; }
+.cal-actions { margin-top: 12px; flex-wrap: wrap; }
+.cal-section { min-width: 0; }
+.cal-list { display: grid; gap: 4px; margin-top: 8px; }
+.cal-day { margin: 14px 0 0; font: 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+.cal-row { display: flex; align-items: center; gap: 4px; min-height: 44px; border-left: 3px solid transparent; padding-left: 6px; color: var(--text); text-decoration: none; }
+.cal-row.overdue { border-left-color: var(--warn); }
+.cal-row.overdue .cal-title { color: var(--warn); }
+.cal-row.done .cal-title { text-decoration: line-through; color: var(--muted); }
+.cal-row.cal-lessons { gap: 12px; color: var(--muted); }
+.cal-open { all: unset; box-sizing: border-box; flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 12px; cursor: pointer; }
+.cal-open:focus-visible { outline: 2px solid var(--accent); }
+.cal-tick { display: grid; place-items: center; min-width: 44px; min-height: 44px; }
+.cal-time-text { flex: none; min-width: 5.5em; font: 12px var(--mono); color: var(--muted); }
+.cal-title { min-width: 0; overflow-wrap: anywhere; }
+.cal-month-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 8px 0; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-dow { text-align: center; font: 11px var(--mono); color: var(--muted); text-transform: uppercase; padding: 4px 0; }
+.cal-dow .short { display: none; }
+.cal-cell { position: relative; min-height: 44px; min-width: 0; display: grid; place-items: center; padding: 0; border: 1px solid var(--edge); border-radius: 10px; background: var(--glass); color: var(--text); font: 14px var(--font); cursor: pointer; }
+.cal-cell.empty { border-color: transparent; background: none; cursor: default; }
+.cal-cell.today { border-color: var(--accent); }
+.cal-cell.picked { background: var(--glass-strong); outline: 2px solid var(--accent); }
+.cal-dot { position: absolute; bottom: 5px; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--accent); }
+.cal-picked { margin-top: 10px; }
+.cal-card { cursor: pointer; display: grid; gap: 6px; }
+.cal-card p { margin: 0; }
+.cal-card-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.cal-card-list li { display: flex; gap: 10px; min-width: 0; }
+.cal-card-list.overdue { color: var(--warn); }
+.cal-soon { margin-top: 6px; }
+.card.calendar-card.level-amber { border-color: var(--warn); box-shadow: var(--shadow), 0 0 0 1px var(--warn); }
+@media (max-width: 699px) {
+  .cal-dow .long { display: none; }
+  .cal-dow .short { display: inline; }
+  .card.cal-section[data-section=month] { padding: 14px 10px; }
+  .cal-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; }
+  .cal-fields { grid-template-columns: minmax(0, 1fr); }
+  .cal-actions > * { flex: 1 1 40%; }
+}

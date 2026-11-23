@@ -49,6 +49,7 @@ var FILES = [
   "./js/weather/open-meteo.js",
   "./js/weather/place.js",
   "./js/weather/forecast.js",
+  "./js/views/calendar.js",
   "./js/views/lessons.js",
   "./js/views/overview.js",
   "./js/views/settings.js",
