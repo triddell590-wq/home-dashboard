@@ -290,7 +290,7 @@ test("a bare hour 1 to 7 means pm; half past; ranges; every 1st; empty titles", 
   eq(t("a half 2pm").title, "A half");
   eq(t("items 3-5").title, "Items 3-5");                      // a bare number range is not a time
   eq(t("a 2-3pm").title, "A");
-  eq(t("meeting tomorrow at half 2"), { ...none, title: "Meeting", date: "2026-11-24", time: "14:30" });
+  eq(t("meeting tomorrow at half 2"), { ...none, title: "Meeting", date: "2026-11-24", time: "14:30", unsure: ["time"] });
   eq(t("lunch 12pm-1pm").title, "Lunch");
   eq(t("dentist the 24th at 2").time, "14:00");
   eq(t("rent every 1st"), { ...none, title: "Rent", kind: "job", date: "2026-12-01", repeat: R("month", 1, "date") });
@@ -304,4 +304,12 @@ test("a bare hour 1 to 7 means pm; half past; ranges; every 1st; empty titles", 
   eq(t("tuesday 2pm").unsure, ["title"]);
   eq(t("dentist").unsure, []);
   eq(t("every spring").unsure, ["date", "title"]);
+});
+
+test("a time guessed as pm is flagged unsure", () => {
+  const u = (text) => parse(text, T).unsure;
+  for (const text of ["a at 2", "a at 5.30", "a half 7", "a 2:30", "a at 2-3", "dentist 5:30"]) eq([text, u(text)], [text, ["time"]]);
+  for (const text of ["a at 2pm", "a at 8", "a at 12", "a at 0", "a at 13", "a at 07", "a 2-3pm", "a noon", "a 14:00", "a half 8", "a half 2pm"]) eq([text, u(text)], [text, []]);
+  eq(parse("x every spring at 5", T).unsure, ["date", "time"]);
+  eq(parse("at 5", T).unsure, ["time", "title"]);
 });

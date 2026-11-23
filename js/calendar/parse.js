@@ -207,6 +207,7 @@ export function parse(text, today) {
   if (rep && rep.weekday !== undefined && dateValue && weekdayIndex(dateValue) !== rep.weekday) unsure.push("date");
   if (rep && rep.season && !dateValue) unsure.push("date");
   const title = tidy(s);
+  if (time && time.guessed) unsure.push("time");
   if (title === "") unsure.push("title");
   return {
     title,
@@ -230,7 +231,7 @@ function timeCandidates(s) {
     // UK "half 2" is 2:30
     ["(?:\\bat\\s+)?\\bhalf\\s+(\\d{1,2})\\b(?![\\d.:]|\\s?[ap]m\\b)", (m) => {
       const h = Number(m[1]);
-      return h >= 1 && h <= 12 ? { value: hhmm(bareHour(h, m[1]), 30) } : null;
+      return h >= 1 && h <= 12 ? { value: hhmm(bareHour(h, m[1]), 30), guessed: bareHour(h, m[1]) !== h } : null;
     }],
     // ranges: the start is the time, the whole range leaves the title ("12pm-1pm", "2-3pm", "14:00-15:00", "at 9-5")
     [`(?:\\bat\\s+)?(?<![\\d:.])${HM}\\s?(am|pm)?\\s*[-–]\\s*${HM}(?:\\s?(am|pm))?(?![\\d/:.]|\\w)`, (m) => {
@@ -245,7 +246,7 @@ function timeCandidates(s) {
         if (start * 60 + n1 > withMeridiem(h2, mer2) * 60 + n2) start = withMeridiem(h1, mer2 === "pm" ? "am" : "pm");
         return { value: hhmm(start, n1) };
       }
-      return validTime(h1, n1) && validTime(h2, n2) ? { value: hhmm(bareHour(h1, m[1]), n1) } : null;
+      return validTime(h1, n1) && validTime(h2, n2) ? { value: hhmm(bareHour(h1, m[1]), n1), guessed: bareHour(h1, m[1]) !== h1 } : null;
     }],
     ["(?:\\bat\\s+)?(?<![\\d:.])(\\d{1,2})(?:[.:](\\d{2}))?\\s?(am|pm)\\b", (m) => {
       const h = Number(m[1]), min = Number(m[2] ?? 0);
@@ -254,9 +255,9 @@ function timeCandidates(s) {
     }],
     ["\\bat\\s+(\\d{1,2})(?:[.:](\\d{2}))?(?![\\d/]|[.:]\\d)", (m) => {
       const h = Number(m[1]), min = Number(m[2] ?? 0);
-      return validTime(h, min) ? { value: hhmm(bareHour(h, m[1]), min) } : null;
+      return validTime(h, min) ? { value: hhmm(bareHour(h, m[1]), min), guessed: bareHour(h, m[1]) !== h } : null;
     }],
-    ["(?<![\\d:.])(\\d{1,2}):(\\d{2})(?![\\d:])", (m) => (validTime(Number(m[1]), Number(m[2])) ? { value: hhmm(bareHour(Number(m[1]), m[1]), Number(m[2])) } : null)],
+    ["(?<![\\d:.])(\\d{1,2}):(\\d{2})(?![\\d:])", (m) => (validTime(Number(m[1]), Number(m[2])) ? { value: hhmm(bareHour(Number(m[1]), m[1]), Number(m[2])), guessed: bareHour(Number(m[1]), m[1]) !== Number(m[1]) } : null)],
   ];
   return forms.flatMap(([re, make]) => scan(re, s, 0, make));
 }
