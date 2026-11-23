@@ -10,6 +10,8 @@ import { recordsFrom } from "../js/lessons/records.js";
 import { ownerUidFromRules } from "../tests/rules/owner.mjs";
 import { refreshWarnings } from "./warnings.mjs";
 
+export const STALE_CLAIM_MS = 30 * 60 * 1000;
+
 export const DEAD = /registration-token-not-registered|invalid-registration-token/i;
 
 export const fcmMessage = (token, { title, body, url = "#/calendar" }) => ({
@@ -17,6 +19,8 @@ export const fcmMessage = (token, { title, body, url = "#/calendar" }) => ({
   data: { title, body, url, tag: "home-day" },
   webpush: { headers: { Urgency: "high", TTL: "43200" } },
 });
+
+const isStaleClaim = (data, now) => !!data && data.status === "sending" && Date.parse(data.claimedAt) <= now.getTime() - STALE_CLAIM_MS;
 
 const asDocs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -30,13 +34,18 @@ export async function runNotify({ firestore, send, uid, now, dryRun = false, arg
   }
   const base = { sent: 0, removed: [], errors: [] };
   const D = londonDay(now);
+  let stale = false;
   const anyTime = dryRun && argv.includes("--any-time");
   const hour = Number(londonHourStart(now).slice(11, 13));
   const reminderRef = firestore.doc(`users/${uid}/reminders/${D}`);
   if (!anyTime) {
     if (hour < 7) return { ...base, status: "early", exitCode: 0 };
     if (hour >= 21) return { ...base, status: "late", exitCode: 0 };
-    if ((await reminderRef.get()).exists) return { ...base, status: "done-already", exitCode: 0 };
+    const existing = await reminderRef.get();
+    if (existing.exists) {
+      if (!isStaleClaim(existing.data(), now)) return { ...base, status: "done-already", exitCode: 0 };
+      stale = true;
+    }
   }
 
   const [eventSnap, daySnap, settingsSnap, deviceSnap] = await Promise.all([
@@ -65,11 +74,22 @@ export async function runNotify({ firestore, send, uid, now, dryRun = false, arg
   }
 
   // Claim the day first, so a crash or an overlapping run after the sends can never send twice.
-  try {
-    await reminderRef.create({ status: "sending", claimedAt: now.toISOString() });
-  } catch (e) {
-    if (e && (e.code === 6 || /already.?exists/i.test(String(e.code)))) return { ...base, status: "done-already", exitCode: 0 };
-    throw e;
+  if (stale) {
+    // A run died after claiming. Take the claim over atomically, so two runs can't both do it.
+    const won = await firestore.runTransaction(async (tx) => {
+      const cur = await tx.get(reminderRef);
+      if (!cur.exists || !isStaleClaim(cur.data(), now)) return false;
+      tx.set(reminderRef, { status: "sending", claimedAt: now.toISOString() });
+      return true;
+    });
+    if (!won) return { ...base, status: "done-already", exitCode: 0 };
+  } else {
+    try {
+      await reminderRef.create({ status: "sending", claimedAt: now.toISOString() });
+    } catch (e) {
+      if (e && (e.code === 6 || /already.?exists/i.test(String(e.code)))) return { ...base, status: "done-already", exitCode: 0 };
+      throw e;
+    }
   }
   const payload = digestPayload(digest);
   const dead = [], errors = [];

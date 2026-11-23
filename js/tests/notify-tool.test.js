@@ -6,11 +6,20 @@ import { fcmMessage, runNotify, main, DEAD } from "../../tools/notify.mjs";
 const UID = "OWNER";
 const P = (rest) => `users/${UID}/${rest}`;
 
+let db_queue = Promise.resolve();
 function fakeDb(docs = {}) {
   const writes = [], deletes = [], log = [];
   return {
     writes, deletes, docs, log,
+    runTransaction: async (fn) => {
+      db_queue = db_queue.then(() => fn({
+        get: async (ref) => ref.get(),
+        set: (ref, v) => { writes.push([ref.path, v]); log.push(["tx-set", ref.path]); docs[ref.path] = v; },
+      }));
+      return db_queue;
+    },
     doc: (p) => ({
+      path: p,
       create: async (v) => {
         if (p in docs) throw Object.assign(new Error("exists"), { code: 6 });
         log.push(["create", p]); docs[p] = v;
@@ -250,4 +259,38 @@ test("a day with items but no devices logs a notice and records devices 0", asyn
   eq(send.calls.length, 0);
   ok(logs.some((l) => l.startsWith("::notice::") && l.includes("no devices")));
   eq(db.docs[P("reminders/2026-11-23")], { sentAt: "2026-11-23T07:00:00.000Z", items: ["Dentist 2pm"], count: 1, devices: 0, errors: [] });
+});
+
+const claim = (iso) => ({ status: "sending", claimedAt: iso });
+const R8 = P("reminders/2026-11-23");
+
+test("a 31-minute-old claim is taken over and sent once", async () => {
+  const now = new Date("2026-11-23T07:31:00Z");
+  const db = fakeDb(seed(now, { [R8]: claim("2026-11-23T07:00:00.000Z") })), send = fakeSend();
+  const res = await run(db, send, now);
+  eq(res.status, "sent");
+  eq(send.calls.length, 2);
+  eq(db.docs[R8].devices, 2);
+});
+
+test("a 5-minute-old claim stops the run", async () => {
+  const now = new Date("2026-11-23T07:05:00Z");
+  const db = fakeDb(seed(now, { [R8]: claim("2026-11-23T07:00:00.000Z") })), send = fakeSend();
+  eq((await run(db, send, now)).status, "done-already");
+  eq(send.calls.length, 0);
+});
+
+test("a finished record stops the run however old it is", async () => {
+  const now = new Date("2026-11-23T09:00:00Z");
+  const db = fakeDb(seed(now, { [R8]: { sentAt: "2026-11-23T07:00:00.000Z", items: [], count: 0, devices: 0, errors: [] } })), send = fakeSend();
+  eq((await run(db, send, now)).status, "done-already");
+  eq(send.calls.length, 0);
+});
+
+test("two runs racing to take over a stale claim: only one sends", async () => {
+  const now = new Date("2026-11-23T07:31:00Z");
+  const db = fakeDb(seed(now, { [R8]: claim("2026-11-23T07:00:00.000Z") })), send = fakeSend();
+  const results = await Promise.all([run(db, send, now), run(db, send, now)]);
+  eq(results.map((r) => r.status).sort(), ["done-already", "sent"]);
+  eq(send.calls.length, 2);
 });
