@@ -54,3 +54,27 @@ test("lesson days: not before trackingSince, and the link", () => {
   const one = lessonItems(records, "2026-11-30", "2026-11-30", "2026-11-23")[0];
   eq([one.kind, one.time, one.link], ["lessons", null, "#/lessons"]);
 });
+test("the day/week jump never emits a date before the range starts", () => {
+  eq(dueDates(ev({ date: "2026-11-01", repeat: { unit: "day", every: 2, monthly: null } }), "2026-11-24", "2026-11-28"), ["2026-11-25", "2026-11-27"]);
+  eq(dueDates(ev({ date: "2026-11-01", repeat: { unit: "week", every: 2, monthly: null } }), "2026-11-24", "2026-12-31"), ["2026-11-29", "2026-12-13", "2026-12-27"]);
+});
+test("odd repeat rules return nothing and never loop for ever", () => {
+  const bad = [
+    { unit: "day", every: 0 }, { unit: "week", every: 0 }, { unit: "month", every: 0, monthly: "date" }, { unit: "year", every: 0 },
+    { unit: "day", every: -1 }, { unit: "week", every: -2 }, { unit: "month", every: -1, monthly: "date" },
+    { unit: "day", every: 1.5 }, { unit: "week", every: 0.5 }, { unit: "month", every: 1.5, monthly: "date" }, { unit: "year", every: 2.5 },
+    { unit: "day", every: "2" }, { unit: "day", every: NaN }, { unit: "day", every: Infinity }, { unit: "day" },
+    { unit: "fortnight", every: 1 }, { unit: "", every: 1 }, { unit: null, every: 1 }, {}, { every: 1 },
+    { unit: "month", every: 1, monthly: "weekday", nth: 0 }, { unit: "month", every: 1, monthly: "weekday", nth: 9 },
+    { unit: "month", every: 1, monthly: "weekday", nth: 2.5 }, { unit: "month", every: 1, monthly: "weekday", nth: "2" },
+    { unit: "month", every: 1, monthly: "weekday", nth: 5 }, { unit: "month", every: 1, monthly: "weekday", nth: -2 },
+  ];
+  for (const repeat of bad) eq([JSON.stringify(repeat), dueDates(ev({ date: "2026-11-09", repeat }), "2026-11-01", "2027-02-28")], [JSON.stringify(repeat), []]);
+});
+test("a monthly weekday rule with no nth uses the start date's week of the month", () => {
+  eq(dates(ev({ date: "2026-11-09", repeat: { unit: "month", every: 1, monthly: "weekday" } }), "2026-11-01", "2027-01-31"), ["2026-11-09", "2026-12-14", "2027-01-11"]);
+});
+test("a recorded lesson row after today is ignored", () => {
+  const records = { days: { "2026-11-25": { lessons: 3, note: "" }, "2026-11-26": { lessons: 2, note: "" } }, settings: { timetable: [0, 0, 0, 4, 0, 0, 0], trackingSince: "2026-11-01" } };
+  eq(lessonItems(records, "2026-11-23", "2026-11-27", "2026-11-23").map((i) => [i.date, i.title]), []);
+});

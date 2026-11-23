@@ -13,11 +13,15 @@ export function dueDates(ev, from, to) {
   const S = ev.date, end = ev.until && ev.until < to ? ev.until : to;
   if (!ev.repeat) return S >= from && S <= end ? [S] : [];
   const { unit, every: n } = ev.repeat, out = [];
+  // Odd documents never loop or expand: unknown unit, or a step that is not a whole number of at least 1.
+  if (!["day", "week", "month", "year"].includes(unit) || !Number.isInteger(n) || n < 1) return [];
+  const nth = ev.repeat.nth;
+  if (unit === "month" && ev.repeat.monthly === "weekday" && nth !== undefined && nth !== null && ![1, 2, 3, 4, -1].includes(nth)) return [];
   const [sy, sm, sd] = S.split("-").map(Number);
   if (unit === "day" || unit === "week") {
     const step = unit === "day" ? n : 7 * n;
     let k = Math.max(0, Math.ceil(dayGap(S, from) / step));
-    for (let d = addDays(S, k * step); d <= end; d = addDays(S, ++k * step)) out.push(d);
+    for (let d = addDays(S, k * step); d <= end; d = addDays(S, ++k * step)) if (d >= from) out.push(d);
     return out;
   }
   const [fy, fm] = from.split("-").map(Number);
@@ -27,7 +31,7 @@ export function dueDates(ev, from, to) {
     const t = sm - 1 + k * stepMonths, y = sy + Math.floor(t / 12), m = (t % 12) + 1;
     if (`${y}-${pad(m)}-01` > end) break;
     const d = unit === "month" && ev.repeat.monthly === "weekday"
-      ? nthWeekdayOf(y, m, weekdayIndex(S), ev.repeat.nth ?? Math.ceil(sd / 7))
+      ? nthWeekdayOf(y, m, weekdayIndex(S), nth ?? Math.ceil(sd / 7))
       : `${y}-${pad(m)}-${pad(Math.min(sd, daysInMonth(y, m)))}`;
     if (d && d <= end && d >= from && d >= S) out.push(d);
   }
