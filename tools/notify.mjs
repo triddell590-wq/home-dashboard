@@ -105,6 +105,13 @@ export async function runNotify({ firestore, send, uid, now, dryRun = false, arg
     await reminderRef.delete();
     throw e;
   }
+  if (sent === 0 && errors.length === 0 && dead.length === devices.length) {
+    // Every token has died for good: remove them so the Settings card offers "turn on" again, and stop failing hourly.
+    for (const id of dead) await firestore.doc(`users/${uid}/devices/${id}`).delete();
+    await reminderRef.set({ sentAt: now.toISOString(), items: digest.items, count: digest.count, devices: 0, errors: [] });
+    log("::notice::All devices had stopped accepting reminders and were removed — turn reminders on again in Settings");
+    return { status: "sent", digest, sent, removed: dead, errors, exitCode: 0 };
+  }
   if (sent === 0) {
     await reminderRef.delete();
     log("::error::No reminder could be sent; the next hourly run will try again");

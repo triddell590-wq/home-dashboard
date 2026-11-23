@@ -204,11 +204,24 @@ test("a bad-message error (invalid-argument) on every device deletes nothing and
   ok(!(P("reminders/2026-11-23") in db.docs));
 });
 
-test("when every device is dead nothing is deleted and no record is kept", async () => {
+test("when every device is dead they are removed, the day is recorded with no devices, and the run succeeds", async () => {
   const now = new Date("2026-11-23T07:00:00Z");
   const dead = { ok: false, error: "messaging/registration-token-not-registered", dead: true };
   const db = fakeDb(seed(now));
-  const res = await run(db, fakeSend({ ta: dead, tb: dead }), now);
+  const lines = [];
+  const res = await run(db, fakeSend({ ta: dead, tb: dead }), now, { log: (l) => lines.push(l) });
+  eq([res.status, res.exitCode], ["sent", 0]);
+  eq(db.deletes.filter((d) => d.includes("devices/")).sort(), [P("devices/a"), P("devices/b")]);
+  eq(db.docs[P("reminders/2026-11-23")].devices, 0);
+  ok(lines.includes("::notice::All devices had stopped accepting reminders and were removed — turn reminders on again in Settings"), lines.join("|"));
+});
+
+test("a mix of dead and other errors with nothing sent deletes nothing and fails the run", async () => {
+  const now = new Date("2026-11-23T07:00:00Z");
+  const dead = { ok: false, error: "messaging/registration-token-not-registered", dead: true };
+  const bad = { ok: false, error: "messaging/internal-error", dead: false };
+  const db = fakeDb(seed(now));
+  const res = await run(db, fakeSend({ ta: dead, tb: bad }), now);
   eq([res.status, res.exitCode], ["failed", 1]);
   eq(db.deletes.filter((d) => d.includes("devices/")), []);
   ok(!(P("reminders/2026-11-23") in db.docs));
