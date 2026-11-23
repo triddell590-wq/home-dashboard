@@ -260,7 +260,7 @@ test("name tables", () => {
     [0, 0, 1, 1, 3, 3, 3, 6, 6]);
   eq([MONTH_NAMES.january, MONTH_NAMES.jan, MONTH_NAMES.sept, MONTH_NAMES.sep, MONTH_NAMES.september, MONTH_NAMES.december, MONTH_NAMES.dec, MONTH_NAMES.may],
     [1, 1, 9, 9, 9, 12, 12, 5]);
-  eq(Object.keys(WEEKDAY_NAMES).length, 7 * 2 + 3);                              // full, 3-letter, tues, thur, thurs
+  eq(Object.keys(WEEKDAY_NAMES).length, 7 * 2 + 4);                              // full, 3-letter, tues, weds, thur, thurs
   eq(Object.keys(MONTH_NAMES).length, 12 * 2 - 1 + 1);                           // full + 3-letter (may is both) + sept
 });
 test("nthWeekdayOf and daysInMonth", () => {
@@ -312,4 +312,42 @@ test("a time guessed as pm is flagged unsure", () => {
   for (const text of ["a at 2pm", "a at 8", "a at 12", "a at 0", "a at 13", "a at 07", "a 2-3pm", "a noon", "a 14:00", "a half 8", "a half 2pm"]) eq([text, u(text)], [text, []]);
   eq(parse("x every spring at 5", T).unsure, ["date", "time"]);
   eq(parse("at 5", T).unsure, ["time", "title"]);
+});
+
+test("a monthly date with no 'the' starts on the next such date, not today", () => {
+  for (const text of ["rent 1st of every month", "1st of every month rent", "rent on the 1st of every month"]) {
+    const p = parse(text, T);
+    eq([text, p.title, p.date, p.repeat], [text, "Rent", "2026-12-01", R("month", 1, "date")]);
+  }
+  eq(parse("1st of every month", T).title, "");
+});
+
+test("weekday abbreviations weds, thurs and tues", () => {
+  eq([parse("vet weds", T).date, parse("vet thurs", T).date, parse("vet tues", T).date], ["2026-11-25", "2026-11-26", "2026-11-24"]);
+  eq(parse("vet weds", T).title, "Vet");
+});
+
+test("a bare ordinal is the next such day of the month", () => {
+  const a = parse("mot 25th", T), b = parse("silage 3rd", T), c = parse("mot the 25th", T);
+  eq([a.title, a.date], ["Mot", "2026-11-25"]);
+  eq([b.title, b.date], ["Silage", "2026-12-03"]);
+  eq([c.title, c.date], ["Mot", "2026-11-25"]);
+  eq(parse("dentist 25th nov", T).date, "2026-11-25");   // still a day and month
+  eq(parse("25", T).date, null);                         // a bare number is not a date
+});
+
+test("a time straight after today, tomorrow or a weekday needs no 'at'", () => {
+  const a = parse("church sunday 7.30", T);
+  eq([a.title, a.date, a.time, a.unsure], ["Church", "2026-11-29", "19:30", ["time"]]);
+  const b = parse("meeting today 12", T);
+  eq([b.title, b.date, b.time, b.unsure], ["Meeting", "2026-11-23", "12:00", []]);
+  const c = parse("vet tomorrow 3", T);
+  eq([c.title, c.date, c.time, c.unsure], ["Vet", "2026-11-24", "15:00", ["time"]]);
+  const d = parse("vet friday 9:15", T);
+  eq([d.date, d.time, d.unsure], ["2026-11-27", "09:15", []]);
+  // not times
+  eq(parse("vet tuesday 25 nov", T).time, null);
+  eq(parse("vet tuesday 2pm", T).time, "14:00");
+  eq(parse("vet tuesday 2-3pm", T).time, "14:00");
+  eq(parse("vet today 25", T).time, null);
 });

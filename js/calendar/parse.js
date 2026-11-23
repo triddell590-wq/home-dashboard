@@ -5,7 +5,7 @@
 import { addDays, weekdayIndex } from "../lessons/sums.js";
 
 export const WEEKDAY_NAMES = {
-  monday: 0, mon: 0, tuesday: 1, tues: 1, tue: 1, wednesday: 2, wed: 2,
+  monday: 0, mon: 0, tuesday: 1, tues: 1, tue: 1, wednesday: 2, weds: 2, wed: 2,
   thursday: 3, thurs: 3, thur: 3, thu: 3, friday: 4, fri: 4, saturday: 5, sat: 5, sunday: 6, sun: 6,
 };
 // Months are numbered 1 to 12 (they feed daysInMonth and Date.UTC directly).
@@ -99,15 +99,16 @@ function dateCandidates(s, from, today) {
   const wk = (name) => WEEKDAY_NAMES[name.toLowerCase()];
   const mo = (name) => MONTH_NAMES[name.toLowerCase()];
   const forms = [
-    [`${PRE}\\btoday\\b`, () => ({ resolve: () => today })],
-    [`${PRE}\\btomorrow\\b`, () => ({ resolve: () => addDays(today, 1) })],
+    [`${PRE}\\btoday\\b`, () => ({ dayWord: true, resolve: () => today })],
+    [`${PRE}\\btomorrow\\b`, () => ({ dayWord: true, resolve: () => addDays(today, 1) })],
     [`${PRE}\\bin\\s+(\\d{1,3})\\s+(day|week)s?\\b`, (m) => ({ resolve: () => addDays(today, Number(m[1]) * (m[2].toLowerCase() === "week" ? 7 : 1)) })],
-    [`${PRE}\\bnext\\s+(${W})\\b(?!['’]\\w)`, (m) => ({ resolve: () => addDays(today, 7 - weekdayIndex(today) + wk(m[1])) })],
-    [`${PRE}\\b(${W})\\b(?!['’]\\w)`, (m) => ({ resolve: () => nextWeekday(today, wk(m[1])) })],
+    [`${PRE}\\bnext\\s+(${W})\\b(?!['’]\\w)`, (m) => ({ dayWord: true, resolve: () => addDays(today, 7 - weekdayIndex(today) + wk(m[1])) })],
+    [`${PRE}\\b(${W})\\b(?!['’]\\w)`, (m) => ({ dayWord: true, resolve: () => nextWeekday(today, wk(m[1])) })],
     [`${PRE}\\b${ORD}\\s+(?:of\\s+)?(${M})\\b(?!['’]\\w)(?:\\s+(\\d{4})\\b)?`, (m) => dayMonth(Number(m[1]), mo(m[2]), m[3])],
     [`${PRE}\\b(${M})\\s+${ORD}\\b(?![:.]\\d)(?:\\s+(\\d{4})\\b)?`, (m) => dayMonth(Number(m[2]), mo(m[1]), m[3])],
     [`${PRE}(?<![\\d/.])(\\d{1,2})/(\\d{1,2})(?:/(\\d{4}|\\d{2}))?(?![\\d/])`, (m) => dayMonth(Number(m[1]), Number(m[2]), m[3] && (m[3].length === 2 ? `20${m[3]}` : m[3]))],
     [`${PRE}\\bthe\\s+${ORD}\\b(?!\\s*(?:of\\s+)?(?:${M})\\b)`, (m) => (m[1] >= 1 && m[1] <= 31 ? { resolve: () => dayNumberOnOrAfter(Number(m[1]), today) } : null)],
+    [`${PRE}(?<![\\d/.])\\b(\\d{1,2})(?:st|nd|rd|th)\\b(?!\\s*(?:of\\s+)?(?:${M})\\b)`, (m) => (m[1] >= 1 && m[1] <= 31 ? { resolve: () => dayNumberOnOrAfter(Number(m[1]), today) } : null)],
   ];
   function dayMonth(d, month, year) {
     if (year) return validDate(Number(year), month, d) ? { resolve: () => iso(Number(year), month, d) } : null;
@@ -138,7 +139,7 @@ function repeatCandidates(s, today) {
     [`(?:\\bon\\s+)?\\bthe\\s+(${NTH})\\s+(${W})\\s+of\\s+every\\s+month\\b`, (m) => nthRepeat(m[1], m[2])],
     [`\\bevery\\s+(${NTH})\\s+(${W})\\b(?:\\s+of\\s+the\\s+month\\b)?`, (m) => nthRepeat(m[1], m[2])],
     [`\\bevery\\s+month\\s+on\\s+the\\s+${ORD}\\b`, (m) => monthDate(Number(m[1]))],
-    [`(?:\\bon\\s+)?\\bthe\\s+${ORD}\\s+of\\s+every\\s+month\\b`, (m) => monthDate(Number(m[1]))],
+    [`(?:\\bon\\s+)?(?:\\bthe\\s+)?${ORD}\\s+of\\s+every\\s+month\\b`, (m) => monthDate(Number(m[1]))],
     [`\\bevery\\s+other\\s+(${W})\\b`, (m) => weekly(2, m[1])],
     [`\\bevery\\s+(${W})\\b`, (m) => weekly(1, m[1])],
     [`\\bevery\\s+(\\d+)\\s+${U}s?\\b`, (m) => (Number(m[1]) >= 1 && Number(m[1]) <= 52 ? fixed(unitOf(m[2]), Number(m[1])) : null)],
@@ -190,16 +191,19 @@ export function parse(text, today) {
   if (due) { deadline = true; cut(due.start, due.end); }
 
   // 4. the first date.
+  let dayTime = null;
   const date = earliestLongest(dateCandidates(s, 0, today));
   if (date) {
     const by = /\bby\s+$/i.exec(s.slice(0, date.start));
     if (by) { deadline = true; cut(by.index, by.index + by[0].length); }
     cut(date.start, date.end);
+    if (date.dayWord) dayTime = timeAfterDay(s, date.end);
   }
 
-  // 5. the first time.
-  const time = earliestLongest(timeCandidates(s));
-  if (time) cut(time.start, time.end);
+  // 5. the first time (a time straight after today, tomorrow or a weekday wins).
+  if (dayTime) cut(dayTime.start, dayTime.end);
+  const time = dayTime ?? earliestLongest(timeCandidates(s));
+  if (time && time !== dayTime) cut(time.start, time.end);
 
   const dateValue = date ? date.resolve(today) : null;
   const startDate = dateValue ?? (rep ? rep.first() : null);
@@ -222,6 +226,18 @@ export function parse(text, today) {
 
 // Times (row 5). A bare hour 1 to 7 with no am/pm (and no leading zero) means pm: "at 2" is 14:00.
 const bareHour = (h, raw) => (h >= 1 && h <= 7 && raw[0] !== "0" ? h + 12 : h);
+// "sunday 7.30", "today 12": a bare time right after a day word, with no "at". Not before am/pm, a range, an
+// ordinal, a month or a unit, which other rules read.
+function timeAfterDay(s, from) {
+  const [c] = scan(`\\s+(\\d{1,2})(?:[.:](\\d{2}))?(?![\\d/]|[.:]\\d|\\s*(?:st|nd|rd|th|am|pm)\\b|\\s*[-–]|\\s+(?:of\\s+)?(?:${M}|days?|weeks?)\\b)`, s, from, (m) => {
+    if (m.index !== from) return null;
+    const h = Number(m[1]), min = Number(m[2] ?? 0);
+    if (!validTime(h, min)) return null;
+    const hr = bareHour(h, m[1]);
+    return { value: `${pad(hr)}:${pad(min)}`, guessed: hr !== h };
+  });
+  return c ?? null;
+}
 function timeCandidates(s) {
   const hhmm = (h, min) => `${pad(h)}:${pad(min)}`;
   const withMeridiem = (h, mer) => (h % 12) + (mer.toLowerCase() === "pm" ? 12 : 0);
