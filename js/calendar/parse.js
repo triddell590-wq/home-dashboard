@@ -146,6 +146,7 @@ function repeatCandidates(s, today) {
     [`\\bevery\\s+${U}\\b`, (m) => fixed(unitOf(m[1]), 1)],
     ["\\bdaily\\b", () => fixed("day", 1)], ["\\bweekly\\b", () => fixed("week", 1)], ["\\bfortnightly\\b", () => fixed("week", 2)],
     ["\\bmonthly\\b", () => fixed("month", 1)], ["\\b(?:yearly|annually)\\b", () => fixed("year", 1)],
+    ["\\bevery\\s+(\\d{1,2})(?:st|nd|rd|th)\\b", (m) => monthDate(Number(m[1]))],
     [`\\bevery\\s+${ORD}\\s+(?:of\\s+)?(${M})\\b(?!['’]\\w)`, (m) => yearly(Number(m[1]), mo(m[2]))],
     [`\\bevery\\s+(${M})\\s+${ORD}\\b(?![:.]\\d)`, (m) => yearly(Number(m[2]), mo(m[1]))],
     [`\\bevery\\s+(spring|summer|autumn|winter)\\b`, (m) => {
@@ -205,8 +206,10 @@ export function parse(text, today) {
   const unsure = [];
   if (rep && rep.weekday !== undefined && dateValue && weekdayIndex(dateValue) !== rep.weekday) unsure.push("date");
   if (rep && rep.season && !dateValue) unsure.push("date");
+  const title = tidy(s);
+  if (title === "") unsure.push("title");
   return {
-    title: tidy(s),
+    title,
     kind: deadline ? "deadline" : rep ? "job" : "appointment",
     date: startDate,
     time: time ? time.value : null,
@@ -216,21 +219,44 @@ export function parse(text, today) {
   };
 }
 
-// Times (row 5).
+// Times (row 5). A bare hour 1 to 7 with no am/pm (and no leading zero) means pm: "at 2" is 14:00.
+const bareHour = (h, raw) => (h >= 1 && h <= 7 && raw[0] !== "0" ? h + 12 : h);
 function timeCandidates(s) {
   const hhmm = (h, min) => `${pad(h)}:${pad(min)}`;
+  const withMeridiem = (h, mer) => (h % 12) + (mer.toLowerCase() === "pm" ? 12 : 0);
+  const HM = "(\\d{1,2})(?:[.:](\\d{2}))?";
   const forms = [
     ["\\b(?:noon|midday)\\b", () => ({ value: "12:00" })],
+    // UK "half 2" is 2:30
+    ["(?:\\bat\\s+)?\\bhalf\\s+(\\d{1,2})\\b(?![\\d.:]|\\s?[ap]m\\b)", (m) => {
+      const h = Number(m[1]);
+      return h >= 1 && h <= 12 ? { value: hhmm(bareHour(h, m[1]), 30) } : null;
+    }],
+    // ranges: the start is the time, the whole range leaves the title ("12pm-1pm", "2-3pm", "14:00-15:00", "at 9-5")
+    [`(?:\\bat\\s+)?(?<![\\d:.])${HM}\\s?(am|pm)?\\s*[-–]\\s*${HM}(?:\\s?(am|pm))?(?![\\d/:.]|\\w)`, (m) => {
+      const h1 = Number(m[1]), n1 = Number(m[2] ?? 0), h2 = Number(m[4]), n2 = Number(m[5] ?? 0);
+      const mer1 = m[3], mer2 = m[6];
+      const timeLike = /^\s*at\s/i.test(m[0]) || mer1 || mer2 || m[2] !== undefined;
+      if (!timeLike || n1 > 59 || n2 > 59) return null;
+      if (mer1 || mer2) {
+        if (h1 < 1 || h1 > 12 || h2 < 1 || h2 > 12) return null;
+        if (mer1) return { value: hhmm(withMeridiem(h1, mer1), n1) };
+        let start = withMeridiem(h1, mer2);
+        if (start * 60 + n1 > withMeridiem(h2, mer2) * 60 + n2) start = withMeridiem(h1, mer2 === "pm" ? "am" : "pm");
+        return { value: hhmm(start, n1) };
+      }
+      return validTime(h1, n1) && validTime(h2, n2) ? { value: hhmm(bareHour(h1, m[1]), n1) } : null;
+    }],
     ["(?:\\bat\\s+)?(?<![\\d:.])(\\d{1,2})(?:[.:](\\d{2}))?\\s?(am|pm)\\b", (m) => {
       const h = Number(m[1]), min = Number(m[2] ?? 0);
       if (h < 1 || h > 12 || min > 59) return null;
-      return { value: hhmm((h % 12) + (m[3].toLowerCase() === "pm" ? 12 : 0), min) };
+      return { value: hhmm(withMeridiem(h, m[3]), min) };
     }],
     ["\\bat\\s+(\\d{1,2})(?:[.:](\\d{2}))?(?![\\d/]|[.:]\\d)", (m) => {
       const h = Number(m[1]), min = Number(m[2] ?? 0);
-      return validTime(h, min) ? { value: hhmm(h, min) } : null;
+      return validTime(h, min) ? { value: hhmm(bareHour(h, m[1]), min) } : null;
     }],
-    ["(?<![\\d:.])(\\d{1,2}):(\\d{2})(?![\\d:])", (m) => (validTime(Number(m[1]), Number(m[2])) ? { value: hhmm(Number(m[1]), Number(m[2])) } : null)],
+    ["(?<![\\d:.])(\\d{1,2}):(\\d{2})(?![\\d:])", (m) => (validTime(Number(m[1]), Number(m[2])) ? { value: hhmm(bareHour(Number(m[1]), m[1]), Number(m[2])) } : null)],
   ];
   return forms.flatMap(([re, make]) => scan(re, s, 0, make));
 }

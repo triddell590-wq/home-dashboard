@@ -176,7 +176,7 @@ test("deadlines", () => {
   eq(parse("pay by in 3 days", T).kind, "deadline");
   eq(parse("pay by 5 pm", T).kind, "appointment");                                // a time is not a date
   eq(parse("pay by", T), { ...none, title: "Pay" });                                 // a trailing connector is trimmed
-  eq(parse("due", T), { ...none, kind: "deadline" });
+  eq(parse("due", T), { ...none, kind: "deadline", unsure: ["title"] });
   eq([parse("tax due, 28 nov", T).title, parse("tax due, 28 nov", T).kind], ["Tax", "deadline"]);
 });
 test("kind: deadline beats job beats appointment", () => {
@@ -190,8 +190,8 @@ test("titles keep Tom's words and casing", () => {
   eq(parse("buy milk", T), { title: "Buy milk", kind: "appointment", date: null, time: null, repeat: null, until: null, unsure: [] });
   eq(parse("tuesday 2pm", T).title, "");
   eq(parse("x".repeat(100) + " tuesday", T).title.length, 80);
-  eq(parse("", T), none);
-  eq(parse("   ", T), none);
+  eq(parse("", T), { ...none, unsure: ["title"] });
+  eq(parse("   ", T), { ...none, unsure: ["title"] });
   eq(parse("dentist at the tuesday", T).title, "Dentist");                      // connectors trimmed from the end
   eq(parse("on the tuesday dentist", T).title, "Dentist");                       // and from the start
   eq(parse("- , on dentist - ,", T).title, "Dentist");
@@ -273,4 +273,35 @@ test("nthWeekdayOf and daysInMonth", () => {
   eq(nthWeekdayOf(2026, 12, 3, -1), "2026-12-31");
   eq(nthWeekdayOf(2027, 1, 6, 1), "2027-01-03");
   eq(daysInMonth(1900, 2), 28); eq(daysInMonth(2000, 2), 29); eq(daysInMonth(2026, 12), 31);
+});
+
+test("a bare hour 1 to 7 means pm; half past; ranges; every 1st; empty titles", () => {
+  const t = (text) => parse(text, T);
+  for (const [text, time] of [["a at 2", "14:00"], ["a at 7", "19:00"], ["a at 1", "13:00"], ["a at 8", "08:00"], ["a at 11", "11:00"],
+    ["a at 12", "12:00"], ["a at 0", "00:00"], ["a at 13", "13:00"], ["a at 23", "23:00"], ["a at 2.30", "14:30"], ["a at 2:30", "14:30"],
+    ["a 2:30", "14:30"], ["a 9:30", "09:30"], ["a 07:00", "07:00"], ["a at 07", "07:00"], ["a at 2am", "02:00"], ["a at 2pm", "14:00"],
+    ["a at half 2", "14:30"], ["a half 7", "19:30"], ["a half 8", "08:30"], ["a at half 12", "12:30"], ["a half 11", "11:30"],
+    ["a 12pm-1pm", "12:00"], ["a 2-3pm", "14:00"], ["a 11-1pm", "11:00"], ["a 10am-12", "10:00"], ["a 2pm - 3pm", "14:00"],
+    ["a 14:00-15:00", "14:00"], ["a 9.30-10.30am", "09:30"], ["a at 9-5", "09:00"], ["a at 2-3", "14:00"], ["a 12-1pm", "12:00"], ["a 11am-1pm", "11:00"]])
+    eq([text, t(text).time, t(text).title], [text, time, "A"]);
+  eq(t("a half 13").time, null);
+  eq(t("a half 0").time, null);
+  eq(t("a half 2pm").time, "14:00");                          // "half" stays in the title; 2pm is the time
+  eq(t("a half 2pm").title, "A half");
+  eq(t("items 3-5").title, "Items 3-5");                      // a bare number range is not a time
+  eq(t("a 2-3pm").title, "A");
+  eq(t("meeting tomorrow at half 2"), { ...none, title: "Meeting", date: "2026-11-24", time: "14:30" });
+  eq(t("lunch 12pm-1pm").title, "Lunch");
+  eq(t("dentist the 24th at 2").time, "14:00");
+  eq(t("rent every 1st"), { ...none, title: "Rent", kind: "job", date: "2026-12-01", repeat: R("month", 1, "date") });
+  eq(t("x every 30th").date, "2026-11-30");
+  eq(t("x every 23rd").repeat, R("month", 1, "date"));
+  eq(t("x every 14th of march").repeat, R("year", 1));
+  eq(t("x every 3 weeks").repeat, R("week", 3));
+  eq(t("x every last friday").repeat, R("month", 1, "weekday", -1));
+  eq(t("every first monday"), { ...none, kind: "job", date: "2026-12-07", repeat: R("month", 1, "weekday", 1), unsure: ["title"] });
+  eq(t("every 3").repeat, null);
+  eq(t("tuesday 2pm").unsure, ["title"]);
+  eq(t("dentist").unsure, []);
+  eq(t("every spring").unsure, ["date", "title"]);
 });
