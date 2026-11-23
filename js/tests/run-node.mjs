@@ -23,6 +23,7 @@ import "./weather-fetch.test.js";
 import "./weather-forecast.test.js";
 import "./weather-text.test.js";
 import "./calendar-parse.test.js";
+import "./calendar-occurrences.test.js";
 import "./warnings-tool.test.js";
 
 const result = await run();

@@ -40,6 +40,7 @@ var FILES = [
   "./js/lessons/csv.js",
   "./js/lessons/text.js",
   "./js/calendar/parse.js",
+  "./js/calendar/occurrences.js",
   "./js/weather/text.js",
   "./js/weather/summary.js",
   "./js/weather/open-meteo.js",
