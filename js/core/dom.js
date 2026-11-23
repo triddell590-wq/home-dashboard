@@ -76,6 +76,21 @@ export function localDate(date) {
   return `${p.weekday} ${Number(p.day)} ${p.month}`;
 }
 
+// The London calendar date and hour, as sortable strings: "YYYY-MM-DD" and "YYYY-MM-DDTHH:00".
+const LONDON_NUMERIC = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hourCycle: "h23",
+  year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit" });
+const londonNumbers = (date) => Object.fromEntries(LONDON_NUMERIC.formatToParts(new Date(date)).map((p) => [p.type, p.value]));
+
+export function londonDay(date) {
+  const p = londonNumbers(date);
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
+export function londonHourStart(date) {
+  const p = londonNumbers(date);
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:00`;
+}
+
 export function relativeDay(iso, now = new Date()) {
   const d = new Date(iso);
   const start = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());

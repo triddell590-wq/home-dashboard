@@ -32,6 +32,7 @@ var FILES = [
   "./js/core/theme.js",
   "./js/core/update.js",
   "./js/core/visible.js",
+  "./js/lessons/sums.js",
   "./js/views/overview.js",
   "./js/views/settings.js",
   "./js/views/signin.js",
