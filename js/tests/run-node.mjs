@@ -20,6 +20,7 @@ import "./lessons-data.test.js";
 import "./lessons-text.test.js";
 import "./weather-summary.test.js";
 import "./weather-fetch.test.js";
+import "./weather-forecast.test.js";
 
 const result = await run();
 for (const f of result.failures) console.log(`FAIL ${f.name}\n      ${f.error}`);
