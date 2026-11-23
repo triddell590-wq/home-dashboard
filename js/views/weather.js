@@ -45,41 +45,68 @@ export function loadWeather({ force = false, fetchImpl, storage, now } = {}) {
     if (fetchImpl) options.fetchImpl = fetchImpl;
     if (storage) options.storage = storage;
     if (now) options.now = now;
-    return getWeather(options);
+    const result = await getWeather(options);
+    return { ...result, used: { place: canon(place), warnings: canon(warnings) } };   // what this result was built from
   })().finally(() => inflight.delete(key));
   inflight.set(key, run);
   return run;
 }
 
-const samePlace = (a, b) => JSON.stringify(a || null) === JSON.stringify(b || null);
+/** Text of a value with keys in a fixed order, so two copies of the same document compare equal. */
+export function canon(value) {
+  const sorted = (v) => (v && typeof v === "object" && !Array.isArray(v)
+    ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sorted(v[k])])) : Array.isArray(v) ? v.map(sorted) : v);
+  return JSON.stringify(sorted(value ?? null));
+}
 
 /**
- * Watches the saved place and the warnings. onChange() runs when either changes after its first report; `latest()`
- * is { known, place } so a finished load can tell whether its place is still the saved one. Returns { stop, latest }.
+ * Watches the saved place and the warnings. Every report is kept; `onChange()` runs when a report differs from what
+ * the last drawn load used (`usedFn()`, null while nothing is drawn yet). `differs(used)` tells a finished load whether
+ * a newer report has already arrived. Returns { stop, differs }.
  */
-function watchWeather(onChange) {
-  const seen = { place: undefined, warnings: undefined };
-  let place = null;
-  let known = false;
+export function watchWeather(onChange, usedFn) {
+  const reported = { place: undefined, warnings: undefined };
+  const differs = (used) => !!used && ((reported.place !== undefined && reported.place !== used.place)
+    || (reported.warnings !== undefined && reported.warnings !== used.warnings));
   const stops = [];
-  const track = (name, value, apply) => {
-    const text = JSON.stringify(value ?? null);
-    const first = seen[name] === undefined;
-    const changed = !first && seen[name] !== text;
-    seen[name] = text;
-    apply();
-    if (changed) onChange();
-  };
+  const report = (name, text) => { reported[name] = text; if (differs(usedFn())) onChange(); };
   try {
-    stops.push(data().watch("settings/weather", (doc) => track("place", doc, () => { known = true; place = doc && doc.place ? doc.place : null; })));
-    stops.push(data().watch("weather/warnings", (doc) => track("warnings", doc, () => {})));
+    stops.push(data().watch("settings/weather", (doc) => report("place", canon(doc && doc.place ? doc.place : null))));
+    stops.push(data().watch("weather/warnings", (doc) => report("warnings", canon(doc))));
   } catch {
     // no watch: the page still loads once; it just won't redraw on its own
   }
-  return {
-    stop: () => { for (const s of stops) if (typeof s === "function") s(); },
-    latest: () => ({ known, place }),
-  };
+  return { stop: () => { for (const x of stops) if (typeof x === "function") x(); }, differs };
+}
+
+const MAX_RELOADS = 3;
+
+/**
+ * Runs the loads for a Weather view: the newest load wins (an older result arriving later is dropped), and a result
+ * built from older data than the watch has reported is never drawn, a reload starts instead.
+ * `draw(result)` and `fail(err)` paint; `busy(flag)` tells the Refresh button.
+ */
+export function weatherController({ draw, fail, busy = () => {}, load = loadWeather }) {
+  let seq = 0;
+  let used = null;
+  let alive = true;
+  const watcher = watchWeather(() => { if (alive) show(false); }, () => used);
+  async function show(force, reloads = 0) {
+    const mine = ++seq;
+    busy(true);
+    try {
+      const result = await load({ force });
+      if (!alive || mine !== seq) return;
+      if (watcher.differs(result.used) && reloads < MAX_RELOADS) return show(false, reloads + 1);
+      used = result.used;
+      draw(result);
+    } catch (err) {
+      if (alive && mine === seq) fail(err);
+    } finally {
+      if (mine === seq) busy(false);
+    }
+  }
+  return { show, stop() { alive = false; watcher.stop(); } };
 }
 
 // ------------------------------------------------------------------ icons and small formats
@@ -177,36 +204,25 @@ function mount(container) {
   const body = el("div", { class: "grid" }, el("p", { class: "sub wx-loading", role: "status" }, "Loading…"));
   const refreshButton = el("button", { class: "btn ghost small", type: "button", onclick: () => show(true) }, "Refresh");
   container.append(el("div", { class: "actions wx-actions" }, refreshButton), body);
-  let alive = true;
-  let seq = 0;
-  let watcher = { stop() {}, latest: () => ({ known: false, place: null }) };
-
-  async function show(force) {
-    const mine = ++seq;
-    refreshButton.disabled = true;
-    try {
-      const result = await loadWeather({ force });
-      if (!alive || mine !== seq) return;
-      const latest = watcher.latest();
-      if (latest.known && !samePlace(result.place, latest.place)) return;   // the place changed while loading: the watch reloads
+  const ctl = weatherController({
+    busy: (flag) => { refreshButton.disabled = flag; },
+    draw(result) {
       if (!result.place) {
         body.replaceChildren(el("section", { class: "card wide static" }, el("p", { class: "sub" }, NO_PLACE)));
       } else {
         body.replaceChildren(nowSection(result), stripSection(result), windSection(result), hourlySection(result));
       }
-    } catch (err) {
-      if (!alive || mine !== seq) return;
+    },
+    fail(err) {
       const reason = err && err.message && err.message !== FORECAST_ERROR ? err.message : FORECAST_ERROR;
       body.replaceChildren(el("section", { class: "card wide static card-error", role: "alert" },
         el("p", { class: "sub" }, `Couldn't load the forecast: ${reason}`),
         el("button", { class: "btn ghost small", type: "button", onclick: () => show(false) }, "Retry")));
-    } finally {
-      if (mine === seq) refreshButton.disabled = false;
-    }
-  }
-  watcher = watchWeather(() => { if (alive) show(false); });
+    },
+  });
+  const show = (force) => ctl.show(force);
   show(false);
-  return () => { alive = false; watcher.stop(); };
+  return () => ctl.stop();
 }
 
 // ------------------------------------------------------------------ Overview card and "Your day"
@@ -238,20 +254,21 @@ function renderCard(result, body) {
 }
 
 export function registerWeather({ registerCard, registerDayPart, registerSettingsCard }) {
-  let latest = () => ({ known: false, place: null });   // the card's watch of the saved place, while it runs
+  let used = null;      // what the card's last load used
+  let differs = () => false;
   registerCard({ id: "weather", order: 50, size: "small", title: "Weather",
     async load() {
       let result = await loadWeather({ force: false });
-      const seen = latest();
-      if (seen.known && !samePlace(result.place, seen.place)) result = await loadWeather({ force: false });   // the place changed while loading
+      for (let n = 0; differs(result.used) && n < MAX_RELOADS; n++) result = await loadWeather({ force: false });   // newer data arrived while loading
+      used = result.used;
       return result;
     },
     empty: (result) => (!result || !result.place ? NO_PLACE : null),
     render: renderCard,
     watch(refresh) {
-      const watcher = watchWeather(refresh);
-      latest = watcher.latest;
-      return () => { watcher.stop(); latest = () => ({ known: false, place: null }); };
+      const watcher = watchWeather(refresh, () => used);
+      differs = watcher.differs;
+      return () => { watcher.stop(); differs = () => false; used = null; };
     } });
   registerDayPart({ id: "weather", order: 30, async load() {
     try {

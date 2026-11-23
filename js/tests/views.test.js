@@ -215,3 +215,57 @@ test("loadWeather shares one fetch between the card, the day phrase and the tab"
   await data().set("settings/weather", {});
   eq((await loadWeather({ force: false, fetchImpl, storage, now })).place, null);
 });
+
+async function weatherHarness() {
+  const { createMemoryData } = await import("../core/data-memory.js");
+  const { useData, startData, data } = await import("../core/data.js");
+  const { weatherController, loadWeather, canon } = await import("../views/weather.js");
+  useData(createMemoryData());
+  startData("u1");
+  const tick = () => new Promise((r) => setTimeout(r, 0));
+  return { data, weatherController, tick, canon, loadWeather };
+}
+const PLACE_A = { name: "Hexham", county: "Northumberland", nation: "England", lat: 54.97, lon: -2.1, region: "ne" };
+const PLACE_B = { name: "Plymouth", county: "Devon", nation: "England", lat: 50.37, lon: -4.14, region: "sw" };
+
+test("a place changed between the initial load and the first report ends with the new place drawn", async () => {
+  if (typeof document !== "undefined") return;
+  const { data, weatherController, tick, canon } = await weatherHarness();
+  await data().set("settings/weather", { place: PLACE_A });
+  const drawn = [];
+  // A load that read the old place, then another device saves a new one before the watch's report is handled.
+  const load = async () => {
+    const doc = await data().get("settings/weather");
+    await data().set("settings/weather", { place: PLACE_B });
+    await tick();
+    const now = await data().get("settings/weather");
+    const read = drawn.length === 0 && !load.reloaded ? doc : now;
+    load.reloaded = true;
+    return { place: read.place, used: { place: canon(read.place), warnings: canon(null) } };
+  };
+  const ctl = weatherController({ draw: (r) => drawn.push(r.place.name), fail: (e) => { throw e; }, load });
+  await ctl.show(false);
+  await tick();
+  eq(drawn, ["Plymouth"]);
+  ctl.stop();
+});
+
+test("a result for an old place arriving after a newer one is dropped", async () => {
+  if (typeof document !== "undefined") return;
+  const { data, weatherController, tick, canon } = await weatherHarness();
+  await data().set("settings/weather", { place: PLACE_B });
+  const slots = [];
+  const load = () => new Promise((resolve) => slots.push(resolve));
+  const result = (p) => ({ place: p, used: { place: canon(p), warnings: canon(null) } });
+  const drawn = [];
+  const ctl = weatherController({ draw: (r) => drawn.push(r.place.name), fail: (e) => { throw e; }, load });
+  const first = ctl.show(false);
+  const second = ctl.show(true);
+  slots[1](result(PLACE_B));
+  await second;
+  slots[0](result(PLACE_A));
+  await first;
+  await tick();
+  eq(drawn, ["Plymouth"]);
+  ctl.stop();
+});
