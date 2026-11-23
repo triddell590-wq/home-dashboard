@@ -85,3 +85,98 @@ test("keepDayFresh shows the date and greeting now, and again each time the page
   doc.become("visible");
   eq([seen.length, doc.listeners()], [3, 0]);
 });
+
+test("watchCards watches only cards that ask, and stops them all", async () => {
+  const { watchCards } = await import("../views/overview.js");
+  const log = [];
+  const specs = [
+    { id: "a" },
+    { id: "b", watch: (refresh) => { log.push("watch b"); refresh(); return () => log.push("stop b"); } },
+    { id: "c", watch: () => { log.push("watch c"); return () => log.push("stop c"); } },
+  ];
+  const refreshers = [() => log.push("refresh a"), () => log.push("refresh b"), () => log.push("refresh c")];
+  const stop = watchCards(specs, refreshers);
+  eq(log, ["watch b", "refresh b", "watch c"]);
+  stop();
+  eq(log.slice(3), ["stop b", "stop c"]);
+  stop();
+  eq(log.length, 5, "stop is idempotent");
+});
+
+async function sourceOf(path) {
+  const url = new URL(path, import.meta.url);
+  return typeof document === "undefined" ? await (await import("node:fs/promises")).readFile(url, "utf8")
+    : await (await fetch(url)).text();
+}
+
+test("test_mobile_table_rule_is_scoped_to_lessons_cards", async () => {
+  const css = await sourceOf("../../css/views.css");
+  ok(css.includes(".card.lz-section .table"), "scoped rule present");
+  ok(!/\.card \.table\s*\{/.test(css), "no global card table rule");
+  const view = await sourceOf("../views/lessons.js");
+  ok(!view.includes('class: "card wide static'), "sections use lz-section");
+});
+
+test("the Lessons view places text only with textContent", async () => {
+  const view = await sourceOf("../views/lessons.js");
+  ok(!/innerHTML/.test(view), "uses innerHTML");
+  ok(!/html\s*:/.test(view), "uses the el html option");
+});
+
+test("watchLive reports data, and an error if nothing arrives in time or the watch throws", async () => {
+  const { watchLive } = await import("../views/lessons.js");
+  // data arrives: no error, timer cleared
+  const events = [];
+  const timers = [];
+  const fakeData = { watch: (path, cb) => { Promise.resolve().then(() => cb(path.startsWith("settings") ? null : [])); return () => events.push("stop " + path); } };
+  const stop = watchLive(fakeData, { onData: (r) => events.push(["data", Object.keys(r).sort().join()]), onError: () => events.push("error"),
+    setTimer: (fn) => { timers.push(fn); return timers.length; }, clearTimer: () => events.push("cleared") });
+  await new Promise((r) => setTimeout(r, 0));
+  eq(events.filter((e) => Array.isArray(e)), [["data", "days,payments,rates,settings"]]);
+  ok(events.includes("cleared"));
+  stop();
+  eq(events.filter((e) => typeof e === "string" && e.startsWith("stop")).length, 4);
+  // nothing ever arrives: the timer fires the error
+  const e2 = [];
+  const t2 = [];
+  watchLive({ watch: () => () => {} }, { onData: () => e2.push("data"), onError: () => e2.push("error"),
+    setTimer: (fn) => { t2.push(fn); return 1; }, clearTimer: () => {} });
+  t2[0]();
+  eq(e2, ["error"]);
+  // the watch throws at once
+  const e3 = [];
+  watchLive({ watch: () => { throw new Error("boom"); } }, { onData: () => {}, onError: () => e3.push("error"), setTimer: () => 1, clearTimer: () => {} });
+  eq(e3, ["error"]);
+});
+
+test("the rate flow previews and saves from the live records at the moment of saving", async () => {
+  const { makeRateFlow } = await import("../views/lessons.js");
+  const { createMemoryData } = await import("../core/data-memory.js");
+  const { recordsFrom } = await import("../lessons/records.js");
+  const d = createMemoryData();
+  let records = recordsFrom({ dayDocs: [], rateDocs: [{ id: "2026-01-01", pence: 1500 }] });
+  const failures = [];
+  const flow = makeRateFlow(d, () => records, (m) => failures.push(m));
+  // no recorded days change: saves straight away
+  eq((await flow.submit(1800, "2026-11-01")).state, "saved");
+  eq(await d.get("lessonRates/2026-11-01"), { pence: 1800 });
+  // the preview shows no change, but by the time of saving another device has recorded a day: the save is refused, not slipped through
+  const quiet = recordsFrom({ dayDocs: [], rateDocs: [{ id: "2026-01-01", pence: 1500 }] });
+  const busy = recordsFrom({ dayDocs: [{ id: "2026-11-10", lessons: 2 }], rateDocs: [{ id: "2026-01-01", pence: 1500 }] });
+  let reads = 0;
+  const flow2 = makeRateFlow(d, () => (reads++ === 0 ? quiet : busy), () => {});
+  let message = null;
+  try { await flow2.submit(2000, "2026-11-02"); } catch (e) { message = e.message; }
+  eq(message, "This changes days already recorded");
+  eq(await d.get("lessonRates/2026-11-02"), null);
+  // with the day already in the records, the same change waits for Confirm and then writes what was previewed
+  records = busy;
+  const flow3 = makeRateFlow(d, () => records, () => {});
+  eq((await flow3.submit(2000, "2026-11-02")).state, "confirm");
+  await flow3.confirm();
+  eq(await d.get("lessonRates/2026-11-02"), { pence: 2000 });
+  // a bad rate is thrown as its message
+  let bad = null;
+  try { await flow.submit(0, "2026-11-01"); } catch (e) { bad = e.message; }
+  ok(bad && bad.includes("rate"), "bad rate message");
+});

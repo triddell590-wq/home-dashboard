@@ -8,7 +8,7 @@ import { chooseBackend, data, startData, useData } from "./core/data.js";
 import { createFirebaseData } from "./core/data-firebase.js";
 import { createMemoryData } from "./core/data-memory.js";
 import { el } from "./core/dom.js";
-import { registerTab, tabs } from "./core/registry.js";
+import { registerCard, registerDayPart, registerSettingsCard, registerTab, tabs } from "./core/registry.js";
 import * as router from "./core/router.js";
 import { configureScreen, depsFor, endSession } from "./core/signout.js";
 import { guarded, nextStep, reloadOnce } from "./core/startup.js";
@@ -16,12 +16,14 @@ import { startSyncStatus } from "./core/sync-status.js";
 import { buildTabbar } from "./core/tabbar.js";
 import { applySavedTheme, currentTheme, toggleTheme } from "./core/theme.js";
 import { applyUpdate, checkWhenVisible, shouldRegisterWorker, watchForUpdate } from "./core/update.js";
+import * as lessons from "./views/lessons.js";
 import * as overview from "./views/overview.js";
 import * as settings from "./views/settings.js";
 import { mountSignin } from "./views/signin.js";
 
 const ICONS = {
   overview: '<rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/>',
+  lessons: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
   moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
@@ -40,7 +42,8 @@ const $ = (id) => document.getElementById(id);
 const rail = document.querySelector(".rail");
 const page = $("page");
 
-for (const view of [overview, settings]) registerTab(view.tab);
+for (const view of [overview, lessons, settings]) registerTab(view.tab);
+lessons.registerLessons({ registerCard, registerDayPart, registerSettingsCard });
 
 function buildRail() {
   const main = $("rail-tabs");
