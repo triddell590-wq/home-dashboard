@@ -11,7 +11,7 @@ const LONDON_CLOCK = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London
 const LONDON_WEEKDAY = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short" });
 const FULL_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-function localTime(iso) { return LONDON_CLOCK.format(new Date(iso)); }
+export function localTime(iso) { return LONDON_CLOCK.format(new Date(iso)); }
 
 function londonParts(iso) {
   const p = Object.fromEntries(LONDON_WEEKDAY.formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
@@ -19,7 +19,7 @@ function londonParts(iso) {
 }
 
 /** "today", "tomorrow", a weekday name within the week, else "Fri 14 Nov"; by the London calendar. */
-function relativeDay(iso, now = new Date()) {
+export function relativeDay(iso, now = new Date()) {
   const day = (x) => new Date(`${londonDay(x)}T12:00:00Z`);
   const days = Math.round((day(iso) - day(now)) / 86400e3);
   if (days === 0) return "today";

@@ -33,6 +33,7 @@ import "./notify-tool.test.js";
 import "./trading-load.test.js";
 import "./trading-market.test.js";
 import "./trading-text.test.js";
+import "./trading-cards.test.js";
 
 const result = await run();
 for (const f of result.failures) console.log(`FAIL ${f.name}\n      ${f.error}`);

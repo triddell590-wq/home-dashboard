@@ -21,6 +21,7 @@ import * as lessons from "./views/lessons.js";
 import * as overview from "./views/overview.js";
 import * as settings from "./views/settings.js";
 import * as weather from "./views/weather.js";
+import { registerTrading } from "./trading/cards.js";
 import { mountSignin } from "./views/signin.js";
 import { browserEnv, deviceId, messagingFor, refreshToken, whenActive } from "./calendar/push.js";
 import { WEATHER_ICONS } from "./weather/text.js";
@@ -52,6 +53,7 @@ for (const view of [overview, calendar, weather, lessons, settings]) registerTab
 calendar.registerCalendar({ registerCard, registerDayPart, registerSettingsCard });
 lessons.registerLessons({ registerCard, registerDayPart, registerSettingsCard });
 weather.registerWeather({ registerCard, registerDayPart, registerSettingsCard });
+registerTrading({ registerCard, registerDayPart, registerSettingsCard });
 
 function buildRail() {
   const main = $("rail-tabs");

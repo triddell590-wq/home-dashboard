@@ -190,3 +190,12 @@
 .cal-device { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .cal-device .cal-title { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .cal-device .btn { min-height: 44px; }
+
+/* trading cards (online) */
+.rank-badge { text-align: right; align-self: start; }
+.rank-badge .big { margin-top: 0; }
+.tr-line { display: block; width: 100%; height: 100%; overflow: visible; }
+.card .made { font-size: 12px; }
+.tr-picks { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-items: start; }
+.tr-picks > .card.large { grid-column: auto; }
+@media (min-width: 901px) { .tr-picks { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); } }
