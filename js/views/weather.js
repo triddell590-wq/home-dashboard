@@ -14,7 +14,7 @@ import {
   staleText, warningText,
 } from "../weather/text.js";
 
-export const tab = { id: "weather", label: "Weather", icon: "weather", order: 70, mount };
+export const tab = { id: "weather", label: "Weather", icon: "weather", order: 40, mount };
 
 const NO_PLACE = "Add your farm's location in Settings to see the forecast";
 const NO_REGION = "Choose a warning region in Settings to see Met Office warnings";

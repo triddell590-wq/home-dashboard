@@ -8,7 +8,7 @@ import { mountLive } from "../trading/live.js";
 import { causeSplitText, dayText, lessonText, madeText, monthText } from "../trading/text.js";
 import { runKind } from "../trading/cards.js";
 
-export const tab = { id: "lab", label: "Strategy lab", order: 40, mount };
+export const tab = { id: "lab", label: "Strategy lab", order: 70, mount };
 
 const num = (label) => ({ label, attrs: { class: "num" } });
 const td = (text, cls = "") => el("td", { class: `num ${cls}`.trim() }, text);

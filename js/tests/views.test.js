@@ -428,7 +428,7 @@ test("trading tabs register with ids trading, research and lab in that order", a
   const lab = await import("../views/lab.js");
   const r = createRegistry();
   for (const view of [lab, trading, research]) r.registerTab(view.tab);
-  eq(r.tabs().map((t) => [t.id, t.label, t.order]), [["trading", "Trading", 20], ["research", "Research", 30], ["lab", "Strategy lab", 40]]);
+  eq(r.tabs().map((t) => [t.id, t.label, t.order]), [["trading", "Trading", 50], ["research", "Research", 60], ["lab", "Strategy lab", 70]]);
   eq(trading.tab.icon, "picks");
   eq(typeof trading.tab.mount, "function");
   eq(typeof research.tab.mount, "function");
@@ -580,4 +580,43 @@ test("the trading views show no raw date strings", async () => {
     ok(!/\.slice\(0,\s*10\)/.test(src), `${file} slices a date out of a timestamp`);
     ok(!/\$\{[^}]*\.(day|as_of|signal_date|champion_since)\}/.test(src), `${file} shows a raw date`);
   }
+});
+
+test("tab orders are unique and the phone bar's first four are Overview, Calendar, Lessons, Weather", async () => {
+  const { createRegistry } = await import("../core/registry.js");
+  const { splitTabs } = await import("../core/tabbar.js");
+  const r = createRegistry();
+  for (const file of ["overview", "calendar", "lessons", "weather", "trading", "research", "lab", "settings"]) r.registerTab((await import(`../views/${file}.js`)).tab);
+  const orders = r.tabs().map((t) => t.order);
+  eq(new Set(orders).size, orders.length, "no ties");
+  eq(r.tabs().map((t) => t.id), ["overview", "calendar", "lessons", "weather", "trading", "research", "lab", "settings"]);
+  const { bar, more } = splitTabs(r.tabs());
+  eq(bar.map((t) => t.id), ["overview", "calendar", "lessons", "weather"]);
+  eq(more.map((t) => t.id), ["trading", "research", "lab", "settings"]);
+});
+
+test("research with no published stock list says stocks appear after the first run", async () => {
+  const { tickerState, NO_UNIVERSE } = await import("../views/research.js");
+  eq(NO_UNIVERSE, "Stocks appear here after the trading engine's first online run");
+  eq(tickerState("AAPL", null, null), { followed: false, message: NO_UNIVERSE });
+  eq(tickerState("AAPL", [], null).message, "The model doesn't follow this stock", "a published list that lacks it still says not followed");
+});
+
+test("a closed-market day shows only that the market was closed", async () => {
+  const { sitOutLine } = await import("../views/trading.js");
+  const now = new Date("2026-11-24T15:00:00Z");
+  eq(sitOutLine({ day: "2026-11-24", status: "market closed", payload: { picks: [] } }, now), null);
+  eq(sitOutLine({ day: "2026-11-24", status: "no picks", payload: { picks: [] } }, now), "The model sits out today: no stock scored above its confidence level.");
+});
+
+test("trading wording uses the date while London is a day ahead of New York", async () => {
+  const { onToday, picksPhrase } = await import("../trading/text.js");
+  const early = new Date("2026-11-24T02:00:00Z");   // 02:00 Tue in London, 21:00 Mon in New York
+  const noon = new Date("2026-11-24T15:00:00Z");
+  eq(onToday(noon), "today");
+  eq(onToday(early), "on Mon 23 Nov");
+  eq(picksPhrase({ count: 0, status: "no picks" }, null, noon), "The model sits out today");
+  eq(picksPhrase({ count: 0, status: "no picks" }, null, early), "The model sits out on Mon 23 Nov");
+  eq(picksPhrase({ count: 3, status: "ok" }, null, early), "3 picks ready for Mon 23 Nov");
+  eq(picksPhrase({ count: null, expected_after: "2026-11-23T11:00:00Z" }, null, early), "The picks for Mon 23 Nov aren't ready yet");
 });

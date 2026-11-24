@@ -10,7 +10,7 @@ import { marketStatus, nyDay } from "./market.js";
 import { mountTradingSettings } from "./settings-card.js";
 import {
   chartText, dateText, excessVsSpy, growthSeries, holdText, localTime, madeText, marketPhrase, outlookText, picksPhrase, picksSummary,
-  rankText, relativeDay, runNotice,
+  onToday, rankText, relativeDay, runNotice,
 } from "./text.js";
 
 export const PRACTICE_NOTE = "Practice sessions are on your Mac";
@@ -276,11 +276,11 @@ const picksCard = {
     const payload = today.payload || {};
     if (today.day === nyDay(now)) {
       if (today.status === "prices stale") return payload.message || "No picks today: prices weren't up to date.";
-      if (today.status === "market closed") return "The market was closed today.";
-      if (!(payload.picks || []).length) return "The model sits out today: no stock scored above its confidence level.";
+      if (today.status === "market closed") return `The market was closed ${onToday(now)}.`;
+      if (!(payload.picks || []).length) return `The model sits out ${onToday(now)}: no stock scored above its confidence level.`;
       return null;
     }
-    return (payload.picks || []).length ? null : notice || "No picks yet today";    // the last good picks stay visible, dated
+    return (payload.picks || []).length ? null : notice || `No picks yet ${onToday(now)}`;    // the last good picks stay visible, dated
   },
   render({ today, now, notice }, body) {
     if (unchanged(body, `${text(today)}|${notice}|${nyDay(now)}`)) return;

@@ -10,9 +10,9 @@ import { pctOrDash, signClass } from "../trading/charts.js";
 import { forwardFrom } from "../trading/load.js";
 import { mountLive } from "../trading/live.js";
 import { nyDay } from "../trading/market.js";
-import { chartText, dayText, holdText, localTime, madeText, minutesText, outlookText, picksSummary, rankText, relativeDay, runNotice, skippedText } from "../trading/text.js";
+import { chartText, dayText, holdText, localTime, madeText, minutesText, onToday, outlookText, picksSummary, rankText, relativeDay, runNotice, skippedText } from "../trading/text.js";
 
-export const tab = { id: "trading", label: "Trading", icon: "picks", order: 20, mount };
+export const tab = { id: "trading", label: "Trading", icon: "picks", order: 50, mount };
 
 const SOURCES = { sp500: "S&P 500", ndx: "Nasdaq-100", etf: "ETF", mover: "Movers scan" };
 const num = (label) => ({ label, attrs: { class: "num" } });
@@ -21,12 +21,12 @@ const arr = (v) => (Array.isArray(v) ? v : []);
 // ------------------------------------------------------------------ pure pieces (tested in Node)
 
 /** The notice lines under the page title, as [class, text]: what went wrong or was missing, then where the picks came from. */
-export function noticeLines(today, status) {
+export function noticeLines(today, status, now = new Date()) {
   const p = (today && today.payload) || {};
   const lines = [];
   if (today.late) lines.push(["warn", "Published after the market opened, so these are shown for interest only and do not count towards the live record."]);
   if (today.status === "prices stale") lines.push(["warn", p.message || "Prices weren't up to date, so no picks were made."]);
-  if (today.status === "market closed") lines.push(["", "The market was closed today."]);
+  if (today.status === "market closed") lines.push(["", `The market was closed ${onToday(now)}.`]);
   if (p.message && today.status !== "prices stale") lines.push(["", p.message]);
   for (const problem of arr(p.problems)) lines.push(["warn", String(problem)]);
   if (arr(p.sources_missing).length) lines.push(["", `Not available this morning: ${p.sources_missing.join(", ")}.`]);
@@ -45,10 +45,16 @@ export function emptyLines(today, status, now = new Date()) {
   const minutes = minutesText(status && status.minutes);
   const lines = [];
   if (notice) lines.push(["warn", notice]);
-  if (!notice || !notice.startsWith("No picks yet today")) lines.push(["", "No picks yet today"]);
+  if (!notice || !notice.startsWith("No picks yet")) lines.push(["", `No picks yet ${onToday(now)}`]);
   lines.push(["", `The model prepares them after ${localTime(picksSummary(today, now).expected_after)} on trading days.`]);
   if (minutes) lines.push(["warn", minutes]);
   return lines;
+}
+
+/** The line saying the model sat out, or null on a closed-market day (the notice already says the market was closed). */
+export function sitOutLine(today, now = new Date()) {
+  if (today && today.status === "market closed") return null;
+  return `The model sits out ${onToday(now)}: no stock scored above its confidence level.`;
 }
 
 /** The ranking rows as plain values for the table. */
@@ -99,7 +105,7 @@ function draw({ today, status, record }, body) {
     ...(minutes ? [["warn", minutes]] : []),
     ...(made ? [["made", made]] : []),
     ...(old ? [["", `These are the picks from ${dayText(today.day)}.`]] : []),
-    ...noticeLines(today, status),
+    ...noticeLines(today, status, now),
   ];
   grid.append(el("section", { class: "card wide bare", "data-card": "trading_notices" }, ...lines.map(([cls, t]) => line(cls, t))));
 
@@ -110,7 +116,7 @@ function draw({ today, status, record }, body) {
       el("p", { class: "sub" }, words.sentence), el("p", { class: "sub" }, `Picks are ${holdText(payload)}.`)));
   }
   if (picks.length) for (const [i, p] of picks.entries()) grid.append(pickCard(p, i, payload));
-  else grid.append(el("section", { class: "card wide bare" }, line("", "The model sits out today: no stock scored above its confidence level.")));
+  else if (sitOutLine(today, now)) grid.append(el("section", { class: "card wide bare" }, line("", sitOutLine(today, now))));
 
   const skipped = arr(payload.skipped);
   const level = payload.trader && payload.trader.entry_level;
@@ -120,7 +126,7 @@ function draw({ today, status, record }, body) {
       ...skipped.map((s) => el("p", { class: "sub", style: { margin: "8px 0 0" } }, tickerLink(String(s.ticker)), " ",
         s.p_up != null && isFinite(s.p_up) ? `(${Math.round(s.p_up * 100)}%) ` : "", skippedText(s)))));
   } else if (payload.trader && payload.trader.on) {
-    grid.append(el("section", { class: "card wide bare" }, line("", "The chart turned none of the shortlist down today.")));
+    grid.append(el("section", { class: "card wide bare" }, line("", `The chart turned none of the shortlist down ${onToday(now)}.`)));
   }
 
   const rows = rankingRows(payload.ranking);

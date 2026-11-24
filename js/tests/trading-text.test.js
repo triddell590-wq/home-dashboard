@@ -41,7 +41,7 @@ test("picks phrases", () => {
   const at = (h) => Z(`2026-11-12T${h}:00:00Z`);
   eq(picksPhrase({ count: 5, status: "published", late: false, expected_after: expected }, pre, at("12")), "5 picks ready for today");
   eq(picksPhrase({ count: 1, status: "published", late: false, expected_after: expected }, pre, at("12")), "1 pick ready for today");
-  eq(picksPhrase({ count: 0, status: "no picks", late: false, expected_after: expected }, pre, new Date()), "The model sits out today");
+  eq(picksPhrase({ count: 0, status: "no picks", late: false, expected_after: expected }, pre, at("12")), "The model sits out today");
   eq(picksPhrase({ count: 4, status: "published", late: true, expected_after: expected }, pre, new Date()), "Late picks: published after the open");
   eq(picksPhrase({ count: null, status: null, late: null, expected_after: expected }, pre, at("07")), "The model prepares today's picks after 11:00");
   eq(picksPhrase({ count: null, status: null, late: null, expected_after: expected }, pre, at("12")), "Today's picks aren't ready yet");

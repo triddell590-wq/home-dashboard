@@ -13,7 +13,7 @@ import {
   compact, createRateFlow, dateText, dayPhrase, longDate, monthName, owedLine, parsePounds, paymentMonths, pounds, previewText, statusText,
 } from "../lessons/text.js";
 
-export const tab = { id: "lessons", label: "Lessons", icon: "lessons", order: 75, mount };
+export const tab = { id: "lessons", label: "Lessons", icon: "lessons", order: 30, mount };
 
 const NEEDS_SETUP = "Set your rate and weekly timetable in Settings to start";
 const MISSING_RATE = "Set your rate in Settings — some days have no rate";

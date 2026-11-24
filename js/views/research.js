@@ -11,8 +11,9 @@ import { chips } from "../trading/chips.js";
 import { mountLive } from "../trading/live.js";
 import { dayText, londonDate, madeText, matchStocks, rankText, relativeDay, localTime } from "../trading/text.js";
 
-export const tab = { id: "research", label: "Research", order: 30, mount };
+export const tab = { id: "research", label: "Research", order: 60, mount };
 
+export const NO_UNIVERSE = "Stocks appear here after the trading engine's first online run";
 export const NOT_FOLLOWED = "The model doesn't follow this stock";
 const SOURCES = { sp500: "S&P 500", ndx: "Nasdaq-100", etf: "ETF", mover: "Movers scan" };
 const ACTIONS = { up: "Upgrade", down: "Downgrade", init: "New coverage", main: "Kept", reit: "Reiterated" };
@@ -26,6 +27,7 @@ export const newest = (rows, n) => arr(rows).slice(0, n);
 
 /** Whether the model follows `ticker`: it does when its document has been published. */
 export function tickerState(ticker, universe, doc) {
+  if (universe == null) return { followed: false, message: NO_UNIVERSE };   // the stock list has not been published yet
   if (!doc) return { followed: false, message: NOT_FOLLOWED };
   const stock = arr(universe).find((s) => s.ticker === ticker) || { ticker, name: "", sector: "", source: "" };
   return { followed: true, stock };
@@ -179,10 +181,11 @@ function mount(container, { arg } = {}) {
   let stocks = [];
   const { node, input } = searchBox((t) => go("research", t), () => stocks);
   const quick = el("div", { class: "chips", style: { marginTop: "14px" } });
+  const hint = el("p", { class: "sub" });
   const body = el("div", { style: { marginTop: "22px" } });
   container.append(el("h1", { class: "page-title" }, "Research"),
     el("p", { class: "lead" }, "Everything the model knows about a stock: its price, how the model rates it today, earnings, analyst changes and the latest headlines."),
-    node, quick, body);
+    node, hint, quick, body);
   if (ticker) input.value = ticker;
   else if (typeof matchMedia === "function" && matchMedia("(min-width: 700px)").matches) setTimeout(() => input.focus(), 50);
 
@@ -191,15 +194,16 @@ function mount(container, { arg } = {}) {
     render: (docs, into) => {
       const dispose = [];
       stocks = arr(docs.universe && docs.universe.rows);
+      hint.textContent = docs.universe ? "" : NO_UNIVERSE;
       const picks = arr(docs.today && docs.today.payload && docs.today.payload.picks);
       quick.replaceChildren(...(picks.length ? [el("span", { class: "sub" }, "Today's picks:"),
         ...picks.map((p) => el("button", { class: "btn small", type: "button", onclick: () => go("research", p.ticker) }, p.ticker))] : []));
       if (!ticker) { into.replaceChildren(); return null; }
-      const state = tickerState(ticker, stocks, docs.ticker);
+      const state = tickerState(ticker, docs.universe ? stocks : null, docs.ticker);
       const grid = el("div", { class: "grid" });
       if (!state.followed) {
         grid.append(el("section", { class: "card wide", "data-card": "r_header" }, label(ticker),
-          sub(state.message), sub("It follows the S&P 500, the Nasdaq-100, a list of ETFs and each morning's movers.")));
+          sub(state.message), ...(state.message === NOT_FOLLOWED ? [sub("It follows the S&P 500, the Nasdaq-100, a list of ETFs and each morning's movers.")] : [])));
         into.append(grid);
         return null;
       }

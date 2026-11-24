@@ -61,20 +61,29 @@ export function marketPhrase(market, now = new Date()) {
   }
 }
 
+/** "today", or "on Mon 23 Nov" while London is a day ahead of New York (London midnight to the New York close), so the
+ * wording never calls the still-running New York day "today". */
+export function onToday(now = new Date()) {
+  const ny = nyDay(now);
+  return londonDay(now) === ny ? "today" : `on ${dayText(ny)}`;
+}
+
 export function picksPhrase(picks, market, now = new Date()) {
   if (!picks) return null;
+  const today = onToday(now) === "today";
   if (picks.count === null || picks.count === undefined) {
     if (market && market.state === "closed") return null;
     if (picks.expected_after && now < new Date(picks.expected_after)) {
-      return `The model prepares today's picks after ${localTime(picks.expected_after)}`;
+      return today ? `The model prepares today's picks after ${localTime(picks.expected_after)}`
+        : `The model prepares the picks for ${dayText(nyDay(now))} after ${localTime(picks.expected_after)}`;
     }
-    return "Today's picks aren't ready yet";
+    return today ? "Today's picks aren't ready yet" : `The picks for ${dayText(nyDay(now))} aren't ready yet`;
   }
   if (picks.status === "market closed") return null;
-  if (picks.status === "prices stale") return "No picks today: prices weren't up to date";
-  if (picks.status === "no picks" || picks.count === 0) return "The model sits out today";
+  if (picks.status === "prices stale") return today ? "No picks today: prices weren't up to date" : `No picks ${onToday(now)}: prices weren't up to date`;
+  if (picks.status === "no picks" || picks.count === 0) return `The model sits out ${onToday(now)}`;
   if (picks.late) return "Late picks: published after the open";
-  return `${picks.count} ${picks.count === 1 ? "pick" : "picks"} ready for today`;
+  return `${picks.count} ${picks.count === 1 ? "pick" : "picks"} ready for ${today ? "today" : dayText(nyDay(now))}`;
 }
 
 export function growthSeries(forward) {
@@ -226,7 +235,7 @@ export function runNotice(status, today, now = new Date()) {
     }
   }
   if (isTradingDay(day) && now >= nyToUtc(day, LAST_ARRIVAL)) {
-    return dated ? `No picks yet today — showing ${dated}` : "No picks yet today";
+    return dated ? `No picks yet ${onToday(now)} — showing ${dated}` : `No picks yet ${onToday(now)}`;
   }
   return null;
 }
