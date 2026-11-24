@@ -1,0 +1,53 @@
+{
+ "rows": [
+  {
+   "ticker": "AAPL",
+   "name": "Apple",
+   "sector": "Technology",
+   "source": "sp500"
+  },
+  {
+   "ticker": "MSFT",
+   "name": "Microsoft",
+   "sector": "Technology",
+   "source": "sp500"
+  },
+  {
+   "ticker": "NVDA",
+   "name": "NVIDIA",
+   "sector": "Technology",
+   "source": "ndx"
+  },
+  {
+   "ticker": "XLE",
+   "name": "Energy Select SPDR",
+   "sector": "",
+   "source": "etf"
+  },
+  {
+   "ticker": "JPM",
+   "name": "JPMorgan Chase",
+   "sector": "Financials",
+   "source": "sp500"
+  },
+  {
+   "ticker": "XOM",
+   "name": "Exxon Mobil",
+   "sector": "Energy",
+   "source": "sp500"
+  },
+  {
+   "ticker": "AMZN",
+   "name": "Amazon",
+   "sector": "Consumer",
+   "source": "ndx"
+  },
+  {
+   "ticker": "TSLA",
+   "name": "Tesla",
+   "sector": "Consumer",
+   "source": "mover"
+  }
+ ],
+ "madeAt": "2026-11-20T11:40:00Z"
+}

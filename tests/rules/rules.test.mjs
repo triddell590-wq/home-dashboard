@@ -18,6 +18,10 @@ before(async () => {
   });
   await env.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(ctx.firestore(), `users/${INTRUDER}/settings/profile`), { name: 'seeded' });
+    await setDoc(doc(ctx.firestore(), `users/${OWNER}/trading/today`), { day: '2026-11-20' });
+    await setDoc(doc(ctx.firestore(), `users/${OWNER}/tradingTickers/AAPL`), { ticker: 'AAPL' });
+    await setDoc(doc(ctx.firestore(), `users/${OWNER}/tradingPicks/2026-11-20`), { day: '2026-11-20' });
+    await setDoc(doc(ctx.firestore(), `users/${OWNER}/trading/today/x/y`), { a: 1 });
   });
 });
 
@@ -71,4 +75,53 @@ test('another user cannot write the owner profile', async () => {
 
 test('owner cannot write a top-level path', async () => {
   await assertFails(setDoc(doc(asOwner(), 'public/x'), { a: 1 }));
+});
+
+test('owner can read trading/today', async () => {
+  await assertSucceeds(getDoc(doc(asOwner(), `users/${OWNER}/trading/today`)));
+});
+
+test('owner cannot write trading/today', async () => {
+  await assertFails(setDoc(doc(asOwner(), `users/${OWNER}/trading/today`), { day: 'x' }));
+});
+
+test('owner cannot write tradingTickers/AAPL', async () => {
+  await assertFails(setDoc(doc(asOwner(), `users/${OWNER}/tradingTickers/AAPL`), { ticker: 'x' }));
+});
+
+test('owner cannot delete tradingPicks/2026-11-20', async () => {
+  await assertFails(deleteDoc(doc(asOwner(), `users/${OWNER}/tradingPicks/2026-11-20`)));
+});
+
+test('owner can still write settings/trading', async () => {
+  await assertSucceeds(setDoc(doc(asOwner(), `users/${OWNER}/settings/trading`), { topN: 3, watchlist: [], secContact: null }));
+});
+
+test('another user cannot read trading/today', async () => {
+  await assertFails(getDoc(doc(asIntruder(), `users/${OWNER}/trading/today`)));
+});
+
+test('owner cannot write a nested path under trading (trading/today/x/y)', async () => {
+  await assertFails(setDoc(doc(asOwner(), `users/${OWNER}/trading/today/x/y`), { a: 2 }));
+  await assertSucceeds(getDoc(doc(asOwner(), `users/${OWNER}/trading/today/x/y`)));
+});
+
+test('a tradingX collection is an ordinary owner collection (read and write)', async () => {
+  const ref = doc(asOwner(), `users/${OWNER}/tradingX/a`);
+  await assertSucceeds(setDoc(ref, { a: 1 }));
+  await assertSucceeds(getDoc(ref));
+});
+
+test('owner can read and write the users/{OWNER} document itself', async () => {
+  const ref = doc(asOwner(), `users/${OWNER}`);
+  await assertSucceeds(setDoc(ref, { seen: true }));
+  await assertSucceeds(getDoc(ref));
+});
+
+test('owner can read and write non-settings collections (lessonDays, events)', async () => {
+  for (const path of [`users/${OWNER}/lessonDays/2026-11-20`, `users/${OWNER}/events/e1`]) {
+    const ref = doc(asOwner(), path);
+    await assertSucceeds(setDoc(ref, { a: 1 }));
+    await assertSucceeds(getDoc(ref));
+  }
 });

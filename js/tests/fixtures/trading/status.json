@@ -1,0 +1,77 @@
+{
+ "madeAt": "2026-11-20T11:40:00Z",
+ "engineCommit": "abc1234",
+ "snapshot": "state-20261120T114000Z-morning",
+ "fellBack": false,
+ "fallbackNote": null,
+ "minutes": {
+  "month": "2026-11",
+  "used": 420,
+  "limit": 2000
+ },
+ "runs": {
+  "morning": {
+   "day": "2026-11-20",
+   "started": "2026-11-20T11:30:00Z",
+   "finished": "2026-11-20T11:40:00Z",
+   "state": "ok",
+   "message": "ok",
+   "step": null,
+   "runUrl": null,
+   "seconds": 600,
+   "peakMemoryMB": 900
+  },
+  "evening": {
+   "day": "2026-11-20",
+   "started": "2026-11-20T11:30:00Z",
+   "finished": "2026-11-20T11:40:00Z",
+   "state": "ok",
+   "message": "ok",
+   "step": null,
+   "runUrl": null,
+   "seconds": 600,
+   "peakMemoryMB": 900
+  },
+  "weekly": {
+   "day": "2026-11-20",
+   "started": "2026-11-20T11:30:00Z",
+   "finished": "2026-11-20T11:40:00Z",
+   "state": "ok",
+   "message": "ok",
+   "step": null,
+   "runUrl": null,
+   "seconds": 600,
+   "peakMemoryMB": 900
+  }
+ },
+ "engine": {
+  "setup": null,
+  "champion": "hgb",
+  "threshold": 0.61,
+  "sources_missing": [],
+  "news_days": 30,
+  "open_batches": 1,
+  "sold_early": [],
+  "champion_hold": 1,
+  "missing_prices": {
+   "count": 2,
+   "examples": [
+    "ABC",
+    "DEF"
+   ]
+  },
+  "intraday": {
+   "stocks": 520,
+   "days": 12,
+   "first": "2026-11-03",
+   "last": "2026-11-19",
+   "last_collection": {
+    "day": "2026-11-19",
+    "tickers": 520,
+    "failed": 2,
+    "error": null
+   }
+  },
+  "last_runs": {}
+ }
+}

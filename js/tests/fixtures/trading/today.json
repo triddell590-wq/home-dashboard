@@ -1,0 +1,394 @@
+{
+ "day": "2026-11-20",
+ "published_at": "2026-11-20T11:35:00Z",
+ "late": false,
+ "status": "ok",
+ "payload": {
+  "day": "2026-11-20",
+  "champion": "hgb",
+  "universe_size": 571,
+  "signal_date": "2026-11-19",
+  "hold": 1,
+  "sell_on": "2026-11-23",
+  "message": null,
+  "problems": [],
+  "sources_missing": [],
+  "picks": [
+   {
+    "ticker": "AAPL",
+    "name": "Apple",
+    "sector": "Technology",
+    "source": "sp500",
+    "price": 100.0,
+    "change": -0.012,
+    "weight": 0.5,
+    "rank": 1,
+    "of": 571,
+    "top_pct": 1,
+    "p_up": 0.62,
+    "reasons": [
+     "Strong earnings surprise",
+     "Analyst upgrade last week",
+     "QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ"
+    ]
+   },
+   {
+    "ticker": "MSFT",
+    "name": "Microsoft",
+    "sector": "Technology",
+    "source": "sp500",
+    "price": 140.5,
+    "change": 0.0,
+    "weight": 0.3,
+    "rank": 2,
+    "of": 571,
+    "top_pct": 1,
+    "p_up": 0.55,
+    "reasons": [
+     "Strong earnings surprise",
+     "Analyst upgrade last week",
+     "Rising sector"
+    ]
+   },
+   {
+    "ticker": "NVDA",
+    "name": "NVIDIA",
+    "sector": "Technology",
+    "source": "ndx",
+    "price": 181.0,
+    "change": 0.012,
+    "weight": 0.2,
+    "rank": 3,
+    "of": 571,
+    "top_pct": 1,
+    "p_up": null,
+    "reasons": [
+     "Strong earnings surprise",
+     "Analyst upgrade last week",
+     "Rising sector"
+    ]
+   }
+  ],
+  "ranking": [
+   {
+    "ticker": "AAPL",
+    "name": "Apple",
+    "sector": "Technology",
+    "source": "sp500",
+    "rank": 1,
+    "of": 571,
+    "top_pct": 1,
+    "change": -0.0158
+   },
+   {
+    "ticker": "MSFT",
+    "name": "Microsoft",
+    "sector": "Technology",
+    "source": "sp500",
+    "rank": 2,
+    "of": 571,
+    "top_pct": 1,
+    "change": -0.0238
+   },
+   {
+    "ticker": "NVDA",
+    "name": "QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ",
+    "sector": "Technology",
+    "source": "ndx",
+    "rank": 3,
+    "of": 571,
+    "top_pct": 1,
+    "change": -0.0062,
+    "reason": "QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ"
+   },
+   {
+    "ticker": "XLE",
+    "name": "Energy Select SPDR",
+    "sector": "",
+    "source": "etf",
+    "rank": 4,
+    "of": 571,
+    "top_pct": 1,
+    "change": -0.0207
+   },
+   {
+    "ticker": "JPM",
+    "name": "JPMorgan Chase",
+    "sector": "Financials",
+    "source": "sp500",
+    "rank": 5,
+    "of": 571,
+    "top_pct": 1,
+    "change": -0.026
+   },
+   {
+    "ticker": "XOM",
+    "name": "Exxon Mobil",
+    "sector": "Energy",
+    "source": "sp500",
+    "rank": 6,
+    "of": 571,
+    "top_pct": 1,
+    "change": -0.0059
+   },
+   {
+    "ticker": "AMZN",
+    "name": "Amazon",
+    "sector": "Consumer",
+    "source": "ndx",
+    "rank": 7,
+    "of": 571,
+    "top_pct": 1,
+    "change": 0.0251
+   },
+   {
+    "ticker": "TSLA",
+    "name": "Tesla",
+    "sector": "Consumer",
+    "source": "mover",
+    "rank": 8,
+    "of": 571,
+    "top_pct": 1,
+    "change": 0.018
+   },
+   {
+    "ticker": "AAPL8",
+    "name": "Apple",
+    "sector": "Technology",
+    "source": "sp500",
+    "rank": 9,
+    "of": 571,
+    "top_pct": 2,
+    "change": 0.0159
+   },
+   {
+    "ticker": "MSFT9",
+    "name": "Microsoft",
+    "sector": "Technology",
+    "source": "sp500",
+    "rank": 10,
+    "of": 571,
+    "top_pct": 2,
+    "change": -0.0167
+   },
+   {
+    "ticker": "NVDA10",
+    "name": "NVIDIA",
+    "sector": "Technology",
+    "source": "ndx",
+    "rank": 11,
+    "of": 571,
+    "top_pct": 2,
+    "change": 0.0022
+   },
+   {
+    "ticker": "XLE11",
+    "name": "Energy Select SPDR",
+    "sector": "",
+    "source": "etf",
+    "rank": 12,
+    "of": 571,
+    "top_pct": 2,
+    "change": -0.0134
+   },
+   {
+    "ticker": "JPM12",
+    "name": "JPMorgan Chase",
+    "sector": "Financials",
+    "source": "sp500",
+    "rank": 13,
+    "of": 571,
+    "top_pct": 2,
+    "change": -0.0196
+   },
+   {
+    "ticker": "XOM13",
+    "name": "Exxon Mobil",
+    "sector": "Energy",
+    "source": "sp500",
+    "rank": 14,
+    "of": 571,
+    "top_pct": 2,
+    "change": -0.0236
+   },
+   {
+    "ticker": "AMZN14",
+    "name": "Amazon",
+    "sector": "Consumer",
+    "source": "ndx",
+    "rank": 15,
+    "of": 571,
+    "top_pct": 3,
+    "change": -0.0171
+   },
+   {
+    "ticker": "TSLA15",
+    "name": "Tesla",
+    "sector": "Consumer",
+    "source": "mover",
+    "rank": 16,
+    "of": 571,
+    "top_pct": 3,
+    "change": 0.0256
+   },
+   {
+    "ticker": "AAPL16",
+    "name": "Apple",
+    "sector": "Technology",
+    "source": "sp500",
+    "rank": 17,
+    "of": 571,
+    "top_pct": 3,
+    "change": 0.0197
+   },
+   {
+    "ticker": "MSFT17",
+    "name": "Microsoft",
+    "sector": "Technology",
+    "source": "sp500",
+    "rank": 18,
+    "of": 571,
+    "top_pct": 3,
+    "change": 0.0184
+   },
+   {
+    "ticker": "NVDA18",
+    "name": "NVIDIA",
+    "sector": "Technology",
+    "source": "ndx",
+    "rank": 19,
+    "of": 571,
+    "top_pct": 3,
+    "change": 0.018
+   },
+   {
+    "ticker": "XLE19",
+    "name": "Energy Select SPDR",
+    "sector": "",
+    "source": "etf",
+    "rank": 20,
+    "of": 571,
+    "top_pct": 4,
+    "change": -0.0184
+   },
+   {
+    "ticker": "JPM20",
+    "name": "JPMorgan Chase",
+    "sector": "Financials",
+    "source": "sp500",
+    "rank": 21,
+    "of": 571,
+    "top_pct": 4,
+    "change": -0.0114
+   },
+   {
+    "ticker": "XOM21",
+    "name": "Exxon Mobil",
+    "sector": "Energy",
+    "source": "sp500",
+    "rank": 22,
+    "of": 571,
+    "top_pct": 4,
+    "change": 0.0076
+   },
+   {
+    "ticker": "AMZN22",
+    "name": "Amazon",
+    "sector": "Consumer",
+    "source": "ndx",
+    "rank": 23,
+    "of": 571,
+    "top_pct": 4,
+    "change": 0.0139
+   },
+   {
+    "ticker": "TSLA23",
+    "name": "Tesla",
+    "sector": "Consumer",
+    "source": "mover",
+    "rank": 24,
+    "of": 571,
+    "top_pct": 4,
+    "change": 0.0213
+   },
+   {
+    "ticker": "AAPL24",
+    "name": "Apple",
+    "sector": "Technology",
+    "source": "sp500",
+    "rank": 25,
+    "of": 571,
+    "top_pct": 4,
+    "change": 0.0228
+   },
+   {
+    "ticker": "MSFT25",
+    "name": "Microsoft",
+    "sector": "Technology",
+    "source": "sp500",
+    "rank": 26,
+    "of": 571,
+    "top_pct": 5,
+    "change": -0.0248
+   },
+   {
+    "ticker": "NVDA26",
+    "name": "NVIDIA",
+    "sector": "Technology",
+    "source": "ndx",
+    "rank": 27,
+    "of": 571,
+    "top_pct": 5,
+    "change": 0.0064
+   },
+   {
+    "ticker": "XLE27",
+    "name": "Energy Select SPDR",
+    "sector": "",
+    "source": "etf",
+    "rank": 28,
+    "of": 571,
+    "top_pct": 5,
+    "change": 0.0103
+   },
+   {
+    "ticker": "JPM28",
+    "name": "JPMorgan Chase",
+    "sector": "Financials",
+    "source": "sp500",
+    "rank": 29,
+    "of": 571,
+    "top_pct": 5,
+    "change": 0.0004
+   },
+   {
+    "ticker": "XOM29",
+    "name": "Exxon Mobil",
+    "sector": "Energy",
+    "source": "sp500",
+    "rank": 30,
+    "of": 571,
+    "top_pct": 5,
+    "change": -0.0193
+   }
+  ],
+  "outlook": {
+   "label": "About usual",
+   "vix": 16.2
+  },
+  "trader": {
+   "on": true,
+   "entry_level": 0.5
+  },
+  "skipped": [
+   {
+    "ticker": "JPM",
+    "p_up": 0.31,
+    "reasons": [
+     "Chart is below its 50-day average"
+    ]
+   }
+  ]
+ },
+ "madeAt": "2026-11-20T11:40:00Z"
+}

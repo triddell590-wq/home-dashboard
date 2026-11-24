@@ -10,7 +10,10 @@
 // scroll check. Settings must say "Reminders aren't set up yet".
 // Also checks, at phone width, that every tap target (sign-in form, each page) is at least 44x44 and that a toast
 // never covers the More sheet; and at both widths that a 40-character unbroken name does not widen the Overview.
-// Exits 1 on any console error, horizontal scroll or failed check. Set CHROME to use another browser binary.
+// The trading tabs (Trading, Research, Strategy lab) are seeded from js/tests/fixtures/trading/ with today's New York date:
+// Research is driven by typing AAPL and tapping the suggestion (the six-month chart must draw), a ticker the model does not
+// follow must say so, and the fixture's 80-character unbroken ranking row must not widen Trading.
+// Set PAGES=trading,lab to check only some pages. Exits 1 on any console error, horizontal scroll or failed check. Set CHROME to use another browser binary.
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -110,7 +113,8 @@ const evaluate = async (expression) => {
 };
 const waitFor = async (expression, what) => {
   for (let i = 0; i < 100; i++) { if (await evaluate(expression)) return; await new Promise((r) => setTimeout(r, 100)); }
-  throw new Error("Timed out waiting for " + what);
+  const seen = await evaluate(`document.querySelector("#page") ? document.querySelector("#page").innerText.slice(0, 300) : "(no page)"`).catch(() => "?");
+  throw new Error(`Timed out waiting for ${what}. Page says: ${seen}. Errors: ${errors.join(" | ")}`);
 };
 
 // Visible controls smaller than 44x44. A radio or checkbox counts as its label, which is what gets tapped.
@@ -155,6 +159,25 @@ const toastOverSheet = () => evaluate(`(() => {
 const londonToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 const daysAgo = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 
+const nyToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const tradingDir = join(dirname(fileURLToPath(import.meta.url)), "../js/tests/fixtures/trading");
+const tradingFixture = (name) => JSON.parse(readFileSync(join(tradingDir, name + ".json"), "utf8"));
+
+/** The fixture documents with their dates moved to today, as [path, document] pairs. */
+function tradingDocs() {
+  const day = nyToday();
+  const ago = new Date(Date.now() - 5 * 60000).toISOString();
+  const docs = {};
+  for (const name of ["status", "today", "account", "record", "unlock", "lab", "universe"]) docs[`trading/${name}`] = tradingFixture(name);
+  docs["tradingTickers/AAPL"] = tradingFixture("tradingTickers/AAPL");
+  const today = docs["trading/today"];
+  today.day = day; today.payload.day = day; today.published_at = ago;
+  for (const run of Object.values(docs["trading/status"].runs)) { run.day = day; run.started = ago; run.finished = ago; }
+  for (const doc of Object.values(docs)) doc.madeAt = ago;
+  docs["tradingPicks/" + day] = { ...today };
+  return docs;
+}
+
 // Seeds through the page's own data module (the same instance the app uses).
 async function seed() {
   const today = londonToday();
@@ -170,6 +193,7 @@ async function seed() {
     await d.set("events/c2", ev("Bins", "appointment", "${today}", null, { repeat: { unit: "week", every: 1, monthly: null } }));
     await d.set("events/c3", ev("Car tax", "deadline", "${daysAgo(today, 2)}", null));
     await d.set("events/c4", ev("${"W".repeat(80)}", "appointment", "${daysAgo(today, -1)}", null));
+    for (const [path, doc] of Object.entries(${JSON.stringify(tradingDocs())})) await d.set(path, doc);
     await d.set("settings/weather", { place: { name: "Hexham", county: "Northumberland", nation: "England", lat: 54.97, lon: -2.1, region: "ne" } });
     return true;
   })`);
@@ -178,12 +202,15 @@ const ready = {
   calendar: [`(document.querySelector("#page h1") || {}).textContent === "Calendar" && document.querySelector("#page").textContent.includes("Coming up") && document.querySelector("#page").textContent.includes("${"W".repeat(80)}")`, "Calendar content"],
   settings: [`document.querySelector("#page").textContent.includes("Reminders aren't set up yet")`, "the Reminders card"],
   lessons: [`(document.querySelector("#page h1") || {}).textContent === "Lessons" && !!document.querySelector(".lz-section")`, "Lessons content"],
+  trading: [`(document.querySelector("#page h1") || {}).textContent === "Trading" && !!document.querySelector('[data-card="trading_ranking"] tbody tr') && document.querySelector("#page").textContent.includes("${"Q".repeat(80)}") && !!document.querySelector(".card.pick")`, "Trading content"],
+  research: [`(document.querySelector("#page h1") || {}).textContent === "Research" && location.hash === "#/research/AAPL" && !!document.querySelector('[data-card="r_news"]') && !!document.querySelector(".chart-box canvas")`, "the AAPL research page and its chart"],
+  lab: [`(document.querySelector("#page h1") || {}).textContent === "Strategy lab" && !!document.querySelector('[data-card="lab_unlock"] .checklist') && !!document.querySelector('[data-card="lab_trader"] table')`, "Strategy lab content"],
   weather: [`(document.querySelector("#page h1") || {}).textContent === "Weather" && (!!document.querySelector(".wx-strip") || document.querySelector("#page").textContent.includes("No forecast available"))`, "Weather content"],
 };
 
 const sizes = [["phone", 375, 812, true], ["desktop", 1280, 800, false]];
 const themes = ["midnight", "daylight"];
-const pages = ["overview", "calendar", "lessons", "weather", "settings"];
+const pages = (process.env.PAGES ? process.env.PAGES.split(",") : ["overview", "calendar", "trading", "research", "lab", "lessons", "weather", "settings"]);
 const root = base.replace(/\/+$/, "");
 const results = [];
 let scriptId = null;
@@ -213,6 +240,14 @@ for (const theme of themes) {
       await seed();
       await evaluate(`location.hash = "#/${name}"`);
       await waitFor(`location.hash === "#/${name}" && document.querySelector("#page").children.length > 0`, name + " content");
+      if (name === "research") {
+        // Type AAPL into the search box and tap the suggestion, as a person would.
+        await waitFor(`!!document.querySelector(".search input")`, "the search box");
+        await evaluate(`(() => { const i = document.querySelector(".search input"); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(i, "AAPL"); i.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+        await waitFor(`!!document.querySelector(".suggestions button") && !document.querySelector(".suggestions").hidden`, "the search suggestions");
+        if (mobile) problems.push(...await phoneProblems("research suggestions"));
+        await evaluate(`document.querySelector(".suggestions button").click()`);
+      }
       if (ready[name]) await waitFor(...ready[name]);
       await evaluate(`document.fonts ? document.fonts.ready.then(() => true) : true`);
       await new Promise((r) => setTimeout(r, 400));
@@ -235,6 +270,13 @@ for (const theme of themes) {
         }
         problems.push(...(mobile ? await phoneProblems("calendar with preview") : []));
         if (await scrollWidth() > width) problems.push("the Add preview widens the page");
+      }
+      if (name === "research") {
+        for (const odd of ["ZZZZ", "..", "A%2FB"]) {   // the last two must be read as "not followed" without any listener on a bad path
+          await evaluate(`location.hash = "#/research/${odd}"`);
+          await waitFor(`document.querySelector("#page").textContent.includes("The model doesn't follow this stock")`, `the not-followed message for ${odd}`);
+          if (await scrollWidth() > width) problems.push(`the not-followed page for ${odd} widens the page`);
+        }
       }
       if (name === "overview") {
         const sw = await longNameWidth();

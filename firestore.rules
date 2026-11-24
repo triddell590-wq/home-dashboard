@@ -4,11 +4,15 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Only the owner's account (the Firebase Auth UID below).
     function ownerUid() { return "Ygr5LVDiYigHd8fNb04m7FeUmbm1"; }
+    function owner(uid) { return request.auth != null && request.auth.uid == uid && uid == ownerUid(); }
 
-    match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null
-                         && request.auth.uid == uid
-                         && uid == ownerUid();
+    match /users/{uid} { allow read, write: if owner(uid); }
+
+    // Everything under the owner is read/write, except the trading results, which only the engine's
+    // Admin SDK writes (the Admin SDK ignores these rules). The page may read them, never write them.
+    match /users/{uid}/{coll}/{document=**} {
+      allow read: if owner(uid);
+      allow write: if owner(uid) && !(coll in ['trading', 'tradingTickers', 'tradingPicks']);
     }
   }
 }
