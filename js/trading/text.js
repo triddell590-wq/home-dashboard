@@ -199,6 +199,12 @@ function previousTradingDay(ymd) {
   return d.toISOString().slice(0, 10);
 }
 
+/** A "YYYY-MM-DD" calendar day as "3 Nov 2026" (the day itself, so no time zone shifts it). */
+export function dateText(ymd) {
+  const d = new Date(`${ymd}T12:00:00Z`);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
 function shortDate(ymd) {
   const d = new Date(`${ymd}T12:00:00Z`);
   return `${SHORT_DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;

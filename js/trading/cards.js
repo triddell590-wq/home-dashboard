@@ -9,7 +9,7 @@ import { forwardFrom, readTrading, watchTrading } from "./load.js";
 import { marketStatus, nyDay } from "./market.js";
 import { mountTradingSettings } from "./settings-card.js";
 import {
-  chartText, excessVsSpy, growthSeries, holdText, localTime, madeText, marketPhrase, outlookText, picksPhrase, picksSummary,
+  chartText, dateText, excessVsSpy, growthSeries, holdText, localTime, madeText, marketPhrase, outlookText, picksPhrase, picksSummary,
   rankText, relativeDay, runNotice,
 } from "./text.js";
 
@@ -27,11 +27,13 @@ export function winRateOf(record) {
 export function moneyLines(account) {
   const a = account || {};
   const rows = Array.isArray(a.equityRows) ? a.equityRows : [];
+  const amount = Number.isFinite(a.equity) ? a.equity : (Number.isFinite(a.capital) ? a.capital : null);
+  if (amount === null) return null;
   const batches = Number.isFinite(a.openBatches) ? a.openBatches : 0;
   return [
     "Model's paper account",
-    money(Number.isFinite(a.equity) ? a.equity : (Number.isFinite(a.capital) ? a.capital : 100000)),
-    rows.length ? `since ${rows[0].d}` : "starts with the first graded day",
+    money(amount),
+    rows.length ? `since ${dateText(rows[0].d)}` : "starts with the first graded day",
     `${batches} batch${batches === 1 ? "" : "es"} open`,
     PRACTICE_NOTE,
   ];
@@ -152,7 +154,8 @@ const moneyReader = reader(["account"]);
 const moneyCard = {
   id: "money", order: 10, size: "small", title: "Money",
   async load() { const { account } = await moneyReader.read(); return { doc: account }; },
-  empty: ({ doc }) => (doc ? null : "The model's paper account appears after the first evening run."),
+  empty: ({ doc }) => (!doc ? "The model's paper account appears after the first evening run."
+    : moneyLines(doc) ? null : "The paper account has no equity or capital yet."),
   render({ doc }, body) {
     if (unchanged(body, `${text(doc)}|${nyDay(new Date())}`)) return;
     const [title, amount, since, batches, note] = moneyLines(doc);
@@ -286,7 +289,7 @@ const picksCard = {
     const notes = [];
     if (notice) notes.push(el("span", { class: "warn" }, notice), " ");
     if (today.late) notes.push(el("span", { class: "warn" }, "Published after the open, so these don't count towards the live record."), " ");
-    if (payload.signal_date && payload.signal_date < previousWeekday(payload.day)) notes.push(`Based on prices from ${payload.signal_date}.`);
+    if (payload.signal_date && payload.signal_date < previousWeekday(payload.day)) notes.push(`Based on prices from ${dateText(payload.signal_date)}.`);
     put(body,
       el("div", { class: "section-title", style: { margin: "0 0 14px" } },
         el("h2", {}, "Today's picks ", el("span", { class: "muted" }, "ranked by the model")),

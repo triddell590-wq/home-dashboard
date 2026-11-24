@@ -4,6 +4,7 @@ import { createMemoryData } from "../core/data-memory.js";
 import { useData, startData } from "../core/data.js";
 import { createRegistry } from "../core/registry.js";
 import { registerTrading, PRACTICE_NOTE, moneyLines, winRateOf } from "../trading/cards.js";
+import { dateText } from "../trading/text.js";
 import { checkTradingSettings, saveTradingSettings } from "../trading/settings-card.js";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
@@ -75,7 +76,22 @@ test("money card reads only trading/account and ends with the practice note", as
   const lines = moneyLines(got.doc);
   eq(lines.at(-1), "Practice sessions are on your Mac");
   eq(PRACTICE_NOTE, "Practice sessions are on your Mac");
-  ok(lines.includes("since 2026-11-02") && lines.includes("1 batch open"), lines.join("|"));
+  ok(lines.includes("since 2 Nov 2026") && lines.includes("1 batch open"), lines.join("|"));
+});
+
+test("money card never invents 100000: no equity and no capital is the empty state", async () => {
+  const backend = fresh();
+  await backend.set("users/u1/trading/account", { equityRows: [], openBatches: 0, madeAt: "2026-11-12T23:10:00Z" });
+  const c = card(registered(), "money");
+  const got = await c.load();
+  eq(moneyLines(got.doc), null);
+  eq(c.empty(got), "The paper account has no equity or capital yet.");
+  await backend.set("users/u1/trading/account", { capital: 100000, equityRows: [] });
+  eq(moneyLines((await c.load()).doc)[1], "$100,000.00");
+});
+
+test("dateText is the London date", () => {
+  eq(dateText("2026-11-03"), "3 Nov 2026");
 });
 
 test("todays_picks shows the amber notice and keeps the last picks", async () => {
