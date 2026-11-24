@@ -17,11 +17,13 @@ before(async () => {
     firestore: { rules: rulesText, host: '127.0.0.1', port: 8080 },
   });
   await env.withSecurityRulesDisabled(async (ctx) => {
-    await setDoc(doc(ctx.firestore(), `users/${INTRUDER}/settings/profile`), { name: 'seeded' });
-    await setDoc(doc(ctx.firestore(), `users/${OWNER}/trading/today`), { day: '2026-11-20' });
-    await setDoc(doc(ctx.firestore(), `users/${OWNER}/tradingTickers/AAPL`), { ticker: 'AAPL' });
-    await setDoc(doc(ctx.firestore(), `users/${OWNER}/tradingPicks/2026-11-20`), { day: '2026-11-20' });
-    await setDoc(doc(ctx.firestore(), `users/${OWNER}/trading/today/x/y`), { a: 1 });
+    // One Firestore instance per context: calling ctx.firestore() again re-applies emulator settings and throws.
+    const db = ctx.firestore();
+    await setDoc(doc(db, `users/${INTRUDER}/settings/profile`), { name: 'seeded' });
+    await setDoc(doc(db, `users/${OWNER}/trading/today`), { day: '2026-11-20' });
+    await setDoc(doc(db, `users/${OWNER}/tradingTickers/AAPL`), { ticker: 'AAPL' });
+    await setDoc(doc(db, `users/${OWNER}/tradingPicks/2026-11-20`), { day: '2026-11-20' });
+    await setDoc(doc(db, `users/${OWNER}/trading/today/x/y`), { a: 1 });
   });
 });
 
