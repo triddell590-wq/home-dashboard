@@ -45,20 +45,35 @@ await check('java present -> run the emulator (CI or not)', () => {
 });
 
 // The trading paths are written only by the Admin SDK: read-only for the owner, everything else unchanged.
-const stripped = rulesText.replace(/\/\/.*$/gm, '');
-await check('rules: trading paths are read-only for the owner', () => {
-  assert.match(stripped, /\[\s*'trading'\s*,\s*'tradingTickers'\s*,\s*'tradingPicks'\s*\]/);
-  assert.match(stripped, /allow read:\s*if owner\(uid\)\s*;/);
-  assert.match(stripped, /allow write:\s*if owner\(uid\)\s*&&\s*!\(coll in \[/);
+// Comments are dropped and whitespace is optional everywhere, so reformatting the rules cannot break these checks.
+const flat = rulesText.replace(/\/\/.*$/gm, '');
+const matchPaths = (text) => [...text.matchAll(/match\s+(\/(?:[^\s{]|\{[^}]*\})*)\s*\{/g)].map((m) => m[1]);
+const blanketPaths = (text) => matchPaths(text).filter((p) => /=\*\*\}/.test(p) && !/^\/users\/\{uid\}\/\{coll\}\/\{\w+=\*\*\}$/.test(p));
+await check('rules: the trading collections are locked against writes', () => {
+  assert.match(flat, /allow\s+write\s*:\s*if\s+owner\(uid\)\s*&&\s*!\s*\(\s*coll\s+in\s*\[\s*'trading'\s*,\s*'tradingTickers'\s*,\s*'tradingPicks'\s*\]\s*\)\s*;/);
+  assert.match(flat, /allow\s+read\s*:\s*if\s+owner\(uid\)\s*;/);
 });
 await check('rules: the user document itself stays read/write for the owner', () => {
-  assert.match(stripped, /match \/users\/\{uid\}\s*\{\s*allow read, write:\s*if owner\(uid\)\s*;/);
+  assert.match(flat, /match\s+\/users\/\{uid\}\s*\{\s*allow\s+read\s*,\s*write\s*:\s*if\s+owner\(uid\)\s*;\s*\}/);
 });
-await check('rules: no blanket owner write remains on users/{uid}/{document=**}', () => {
-  assert.doesNotMatch(stripped, /users\/\{uid\}\/\{document=\*\*\}/);
+await check('rules: no blanket recursive match remains (users/{uid}/{document=**}, {path=**}, top-level)', () => {
+  assert.deepEqual(blanketPaths(flat), []);
+  assert.ok(matchPaths(flat).includes('/users/{uid}/{coll}/{document=**}'));
+});
+await check('rules: every write allow outside the user document carries the trading guard', () => {
+  for (const m of flat.matchAll(/allow\s+([^:]*?)\s*:\s*if\s+([^;]*);/g)) {
+    const kinds = m[1].split(/\s*,\s*/);
+    if (kinds.includes('write') && kinds.includes('read')) continue;   // the users/{uid} document rule
+    if (kinds.includes('write')) assert.match(m[2], /!\s*\(\s*coll\s+in\s*\[/, 'unguarded write: ' + m[0]);
+  }
+});
+await check('rules: the blanket detector catches {path=**} and a top-level /{document=**}', () => {
+  assert.deepEqual(blanketPaths('match /{document=**} { allow write: if true; }'), ['/{document=**}']);
+  assert.deepEqual(blanketPaths('match /users/{uid}/{path=**} { allow write: if owner(uid); }'), ['/users/{uid}/{path=**}']);
+  assert.deepEqual(blanketPaths('match /users/{uid}/{coll}/{document=**} { }'), []);
 });
 await check('rules: owner() still checks the signed-in uid and ownerUid()', () => {
-  assert.match(stripped, /function owner\(uid\)\s*\{\s*return request\.auth != null\s*&&\s*request\.auth\.uid == uid\s*&&\s*uid == ownerUid\(\);\s*\}/);
+  assert.match(flat, /function\s+owner\(uid\)\s*\{\s*return\s+request\.auth\s*!=\s*null\s*&&\s*request\.auth\.uid\s*==\s*uid\s*&&\s*uid\s*==\s*ownerUid\(\)\s*;\s*\}/);
 });
 
 if (failed) { console.log(failed + ' failed'); process.exit(1); }

@@ -99,3 +99,14 @@ test("a document changed between readTrading and the first watch report is deliv
   eq(seen[0], { day: "new" });
   stop();
 });
+
+test("watchTrading validates every name before subscribing", () => {
+  const backend = createMemoryData();
+  const watched = [];
+  useData({ ...backend, watch: (path, cb) => { watched.push(path); return backend.watch(path, cb); } });
+  startData("u1");
+  let failed = false;
+  try { watchTrading(["today", "nope"], () => {}); } catch { failed = true; }
+  ok(failed);
+  eq(watched, []);
+});

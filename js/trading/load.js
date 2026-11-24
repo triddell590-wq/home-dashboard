@@ -40,9 +40,11 @@ export async function readTicker(ticker, waitMs = READ_WAIT_MS) {
 /** Calls onChange(name, doc) for every report of each named document, the first included, so a change between an
  * initial read and the first report is never lost; callers compare with what they last drew. Returns stop(). */
 export function watchTrading(names, onChange) {
+  const paths = names.map(pathOf);   // validate every name before subscribing to any
   let stopped = false;
-  const stops = names.map((name) => {
-    return data().watch(pathOf(name), (doc) => {
+  const stops = paths.map((path, i) => {
+    const name = names[i];
+    return data().watch(path, (doc) => {
       if (!stopped) onChange(name, isObject(doc) ? doc : null);
     });
   });
