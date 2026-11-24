@@ -1,10 +1,33 @@
 // The wording for the online Trading tabs. Pure functions, tested in Node. The helpers up to matchStocks are
 // copied unchanged from the Mac's views (day.js, trading-cards.js, research.js); the ones after are new.
-import { countdown, localTime, relativeDay, el } from "../core/dom.js";
+import { countdown, londonDay } from "../core/dom.js";
 import { isTradingDay, nyDay, nyToUtc } from "./market.js";
 
 const SHORT_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Every time and date in Trading's wording is Europe/London, whatever the device's zone.
+const LONDON_CLOCK = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hourCycle: "h23", hour: "2-digit", minute: "2-digit" });
+const LONDON_WEEKDAY = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short" });
+const FULL_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function localTime(iso) { return LONDON_CLOCK.format(new Date(iso)); }
+
+function londonParts(iso) {
+  const p = Object.fromEntries(LONDON_WEEKDAY.formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+  return { weekday: p.weekday, day: Number(p.day), month: p.month };
+}
+
+/** "today", "tomorrow", a weekday name within the week, else "Fri 14 Nov"; by the London calendar. */
+function relativeDay(iso, now = new Date()) {
+  const day = (x) => new Date(`${londonDay(x)}T12:00:00Z`);
+  const days = Math.round((day(iso) - day(now)) / 86400e3);
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  const p = londonParts(iso);
+  if (days > 1 && days < 7) return FULL_DAYS[day(iso).getUTCDay()];
+  return `${p.weekday} ${p.day} ${p.month}`;
+}
 
 const FULL_SESSION_MS = 6.5 * 3600e3;
 
@@ -139,10 +162,6 @@ export function lessonText(l) {
   const scored = w && wo && isFinite(w.score) && isFinite(wo.score)
     ? ` · test year score ${Number(w.score).toFixed(2)} vs ${Number(wo.score).toFixed(2)} without` : "";
   return `When ${l.description}: ${change} (${l.status}${scored})`;
-}
-
-export function chips(reasons) {
-  return el("div", { class: "chips" }, (reasons || []).map((r) => el("span", { class: "chip" }, r)));
 }
 
 /** Suggestions for a search box: ticker prefixes first, then name prefixes, then names containing the text. */

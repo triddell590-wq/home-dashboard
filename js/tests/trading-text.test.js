@@ -1,59 +1,52 @@
 // Pure wording for the online Trading tabs. Ported from the Mac's day, overview and research tests, plus the online notices.
-import { localTime, relativeDay } from "../core/dom.js";
 import { test, eq } from "./harness.js";
 import { marketPhrase, picksPhrase, picksSummary, runNotice, madeText, minutesText, growthSeries, excessVsSpy, rankText,
   holdText, outlookText, chartText, skippedText, causeSplitText, lessonText, matchStocks } from "../trading/text.js";
 
-const iso = (...args) => new Date(...args).toISOString();
+// Times are Europe/London whatever the device's zone, so these run the same under any TZ. November is GMT, so 14:30Z reads 14:30.
+const Z = (text) => new Date(text);
 
-// ---- from the Mac's day.test.js
 test("market phrases for each state", () => {
-  const opens = iso(2026, 10, 12, 14, 30);
-  const now = new Date(2026, 10, 12, 12, 16);
-  eq(marketPhrase({ state: "pre", opens_at: opens, closes_at: iso(2026, 10, 12, 21, 0) }, now),
-    `Market opens at ${localTime(opens)} (in 2h 14m)`);
-  eq(marketPhrase({ state: "open", opens_at: opens, closes_at: iso(2026, 10, 12, 21, 0) }, now),
-    `Market open · closes at ${localTime(iso(2026, 10, 12, 21, 0))}`);
-  const next = iso(2026, 10, 13, 14, 30);
-  eq(marketPhrase({ state: "after", next_open_at: next, next_close_at: iso(2026, 10, 13, 21, 0) }, new Date(2026, 10, 12, 21, 30)),
-    `Market closed · opens tomorrow ${localTime(next)}`);
+  const opens = "2026-11-12T14:30:00Z";
+  const now = Z("2026-11-12T12:16:00Z");
+  eq(marketPhrase({ state: "pre", opens_at: opens, closes_at: "2026-11-12T21:00:00Z" }, now), "Market opens at 14:30 (in 2h 14m)");
+  eq(marketPhrase({ state: "open", opens_at: opens, closes_at: "2026-11-12T21:00:00Z" }, now), "Market open · closes at 21:00");
+  eq(marketPhrase({ state: "after", next_open_at: "2026-11-13T14:30:00Z", next_close_at: "2026-11-13T21:00:00Z" }, Z("2026-11-12T21:30:00Z")),
+    "Market closed · opens tomorrow 14:30");
+});
+
+test("market phrases read London time, not UTC, in summer", () => {
+  eq(marketPhrase({ state: "open", opens_at: "2026-07-14T13:30:00Z", closes_at: "2026-07-14T20:00:00Z" }, Z("2026-07-14T15:00:00Z")),
+    "Market open · closes at 21:00");
 });
 
 test("weekend phrase names the day", () => {
-  const monOpen = iso(2026, 10, 16, 14, 30);
-  eq(marketPhrase({ state: "closed", reason: "weekend", next_open_at: monOpen, next_close_at: iso(2026, 10, 16, 21, 0) },
-    new Date(2026, 10, 14, 12, 0)), `Closed for the weekend · opens Monday ${localTime(monOpen)}`);
+  eq(marketPhrase({ state: "closed", reason: "weekend", next_open_at: "2026-11-16T14:30:00Z", next_close_at: "2026-11-16T21:00:00Z" },
+    Z("2026-11-14T12:00:00Z")), "Closed for the weekend · opens Monday 14:30");
 });
 
 test("holiday phrase mentions an early close", () => {
-  const friOpen = iso(2026, 10, 27, 14, 30);
-  const friEarly = iso(2026, 10, 27, 18, 0);
-  eq(marketPhrase({ state: "closed", reason: "holiday", holiday_name: "Thanksgiving", next_open_at: friOpen, next_close_at: friEarly },
-    new Date(2026, 10, 26, 12, 0)), `Closed for Thanksgiving · opens tomorrow ${localTime(friOpen)}, closes early at ${localTime(friEarly)}`);
+  eq(marketPhrase({ state: "closed", reason: "holiday", holiday_name: "Thanksgiving", next_open_at: "2026-11-27T14:30:00Z",
+    next_close_at: "2026-11-27T18:00:00Z" }, Z("2026-11-26T12:00:00Z")), "Closed for Thanksgiving · opens tomorrow 14:30, closes early at 18:00");
 });
 
 test("an early close today is mentioned while open", () => {
-  const closes = iso(2026, 10, 27, 18, 0);
-  eq(marketPhrase({ state: "open", opens_at: iso(2026, 10, 27, 14, 30), closes_at: closes }, new Date(2026, 10, 27, 15, 0)),
-    `Market open · closes early at ${localTime(closes)}`);
+  eq(marketPhrase({ state: "open", opens_at: "2026-11-27T14:30:00Z", closes_at: "2026-11-27T18:00:00Z" }, Z("2026-11-27T15:00:00Z")),
+    "Market open · closes early at 18:00");
 });
 
 test("picks phrases", () => {
   const pre = { state: "pre" };
-  const expected = iso(2026, 10, 12, 11, 0);
-  eq(picksPhrase({ count: 5, status: "published", late: false, expected_after: expected }, pre, new Date(2026, 10, 12, 12, 0)),
-    "5 picks ready for today");
-  eq(picksPhrase({ count: 1, status: "published", late: false, expected_after: expected }, pre, new Date(2026, 10, 12, 12, 0)),
-    "1 pick ready for today");
+  const expected = "2026-11-12T11:00:00Z";
+  const at = (h) => Z(`2026-11-12T${h}:00:00Z`);
+  eq(picksPhrase({ count: 5, status: "published", late: false, expected_after: expected }, pre, at("12")), "5 picks ready for today");
+  eq(picksPhrase({ count: 1, status: "published", late: false, expected_after: expected }, pre, at("12")), "1 pick ready for today");
   eq(picksPhrase({ count: 0, status: "no picks", late: false, expected_after: expected }, pre, new Date()), "The model sits out today");
-  eq(picksPhrase({ count: 4, status: "published", late: true, expected_after: expected }, pre, new Date()),
-    "Late picks: published after the open");
-  eq(picksPhrase({ count: null, status: null, late: null, expected_after: expected }, pre, new Date(2026, 10, 12, 7, 0)),
-    `The model prepares today's picks after ${localTime(expected)}`);
-  eq(picksPhrase({ count: null, status: null, late: null, expected_after: expected }, pre, new Date(2026, 10, 12, 12, 0)),
-    "Today's picks aren't ready yet");
+  eq(picksPhrase({ count: 4, status: "published", late: true, expected_after: expected }, pre, new Date()), "Late picks: published after the open");
+  eq(picksPhrase({ count: null, status: null, late: null, expected_after: expected }, pre, at("07")), "The model prepares today's picks after 11:00");
+  eq(picksPhrase({ count: null, status: null, late: null, expected_after: expected }, pre, at("12")), "Today's picks aren't ready yet");
   eq(picksPhrase({ count: null, status: null, late: null, expected_after: expected }, { state: "closed", reason: "weekend" },
-    new Date(2026, 10, 14, 12, 0)), null);
+    Z("2026-11-14T12:00:00Z")), null);
 });
 
 // ---- the pure parts of the Mac's overview.test.js
@@ -161,8 +154,8 @@ const failed = (finished, day = "2026-11-24") => ({ runs: { morning: { day, stat
 test("runNotice says the morning failed and shows yesterday's picks", () => {
   const now = T("2026-11-24T14:00:00Z");
   const fin = "2026-11-24T11:24:00Z";
-  eq(runNotice(failed(fin), picksOf("2026-11-23"), now), `This morning's run failed at ${localTime(fin)} — showing yesterday's picks`);
-  eq(runNotice(failed(fin), picksOf("2025-11-14"), now), `This morning's run failed at ${localTime(fin)} — showing the picks from Fri 14 Nov`);
+  eq(runNotice(failed(fin), picksOf("2026-11-23"), now), "This morning's run failed at 11:24 — showing yesterday's picks");
+  eq(runNotice(failed(fin), picksOf("2025-11-14"), now), "This morning's run failed at 11:24 — showing the picks from Fri 14 Nov");
   eq(runNotice(failed(fin), picksOf("2026-11-24"), now), null);          // today's picks did arrive
 });
 
@@ -171,7 +164,7 @@ test("runNotice treats a run older than 2 hours as failed", () => {
   const running = (mins) => ({ runs: { morning: { day: "2026-11-24", state: "running",
     started: new Date(now.getTime() - mins * 60e3).toISOString(), finished: null } } });
   const line = runNotice(running(121), picksOf("2026-11-23"), now);
-  eq(line, `This morning's run failed at ${localTime(running(121).runs.morning.started)} — showing yesterday's picks`);
+  eq(line, "This morning's run failed at 09:59 — showing yesterday's picks");
   eq(runNotice(running(119), picksOf("2026-11-23"), now), null);
 });
 
@@ -184,13 +177,14 @@ test("runNotice says \"No picks yet today\" after 09:30 New York on a trading da
   eq(runNotice(ok, { day: null }, T("2026-11-24T15:00:00Z")), "No picks yet today");
 });
 
-test("madeText says which run the data came from", () => {
+test("madeText says which run the data came from, by the London day", () => {
   const now = T("2026-11-24T20:00:00Z");
   eq(madeText("2026-11-24T11:20:00Z", "morning", now), "As of this morning's run");
   eq(madeText("2026-11-24T19:10:00Z", "evening", now), "As of this evening's run");
-  const old = "2025-11-14T22:41:00Z";           // "As of Fri 14 Nov 22:41" on a London-time device
-  eq(madeText(old, "evening", now), `As of ${relativeDay(old, now)} ${localTime(old)}`);
-  if (relativeDay(old, now) === "Fri 14 Nov") eq(madeText(old, "evening", now), "As of Fri 14 Nov " + localTime(old));
+  eq(madeText("2025-11-14T22:41:00Z", "evening", now), "As of Fri 14 Nov 22:41");
+  // 23:30Z in July is 00:30 next day in London, so a "today" in London is not "today" in UTC
+  eq(madeText("2026-07-14T23:30:00Z", "evening", T("2026-07-15T08:00:00Z")), "As of this evening's run");
+  eq(madeText("2026-07-14T22:30:00Z", "evening", T("2026-07-15T08:00:00Z")), "As of Tue 14 Jul 23:30");
 });
 
 test("minutesText warns from 1,700 of 2,000", () => {
