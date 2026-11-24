@@ -37,13 +37,12 @@ export async function readTicker(ticker, waitMs = READ_WAIT_MS) {
   return isObject(doc) ? doc : null;
 }
 
-/** Calls onChange(name, doc) for every report after the first of each named document. Returns stop(). */
+/** Calls onChange(name, doc) for every report of each named document, the first included, so a change between an
+ * initial read and the first report is never lost; callers compare with what they last drew. Returns stop(). */
 export function watchTrading(names, onChange) {
   let stopped = false;
   const stops = names.map((name) => {
-    let first = true;
     return data().watch(pathOf(name), (doc) => {
-      if (first) { first = false; return; }
       if (!stopped) onChange(name, isObject(doc) ? doc : null);
     });
   });

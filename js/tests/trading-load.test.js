@@ -71,21 +71,31 @@ test("forwardFrom skips bad rows and tolerates no record", () => {
   eq(forwardFrom({}), { days: [] });
 });
 
-test("watchTrading reports changes and stops", async () => {
+test("watchTrading delivers every report, the first included, and stops", async () => {
   const backend = fresh();
   await backend.set("users/u1/trading/today", { day: "a" });
   const seen = [];
   const stop = watchTrading(["today", "status"], (name, doc) => seen.push([name, doc]));
   await tick();
-  eq(seen, []);                                    // the first report of each is not a change
+  eq(seen, [["today", { day: "a" }], ["status", null]]);
   await backend.set("users/u1/trading/today", { day: "b" });
   await tick();
-  eq(seen, [["today", { day: "b" }]]);
-  await backend.set("users/u1/trading/status", { madeAt: "x" });
-  await tick();
-  eq(seen.length, 2);
+  eq(seen.length, 3);
+  eq(seen[2], ["today", { day: "b" }]);
   stop();
   await backend.set("users/u1/trading/today", { day: "c" });
   await tick();
-  eq(seen.length, 2);
+  eq(seen.length, 3);
+});
+
+test("a document changed between readTrading and the first watch report is delivered", async () => {
+  const backend = fresh();
+  await backend.set("users/u1/trading/today", { day: "old" });
+  eq(await readTrading("today"), { day: "old" });
+  await backend.set("users/u1/trading/today", { day: "new" });   // lands after the read, before the watch starts
+  const seen = [];
+  const stop = watchTrading(["today"], (name, doc) => seen.push(doc));
+  await tick();
+  eq(seen[0], { day: "new" });
+  stop();
 });
