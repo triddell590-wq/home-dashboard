@@ -1,5 +1,5 @@
 // Pure wording for the online Trading tabs. Ported from the Mac's day, overview and research tests, plus the online notices.
-import { localTime } from "../core/dom.js";
+import { localTime, relativeDay } from "../core/dom.js";
 import { test, eq } from "./harness.js";
 import { marketPhrase, picksPhrase, picksSummary, runNotice, madeText, minutesText, growthSeries, excessVsSpy, rankText,
   holdText, outlookText, chartText, skippedText, causeSplitText, lessonText, matchStocks } from "../trading/text.js";
@@ -188,7 +188,9 @@ test("madeText says which run the data came from", () => {
   const now = T("2026-11-24T20:00:00Z");
   eq(madeText("2026-11-24T11:20:00Z", "morning", now), "As of this morning's run");
   eq(madeText("2026-11-24T19:10:00Z", "evening", now), "As of this evening's run");
-  eq(madeText("2025-11-14T22:41:00Z", "evening", now), `As of Fri 14 Nov ${localTime("2025-11-14T22:41:00Z")}`);
+  const old = "2025-11-14T22:41:00Z";           // "As of Fri 14 Nov 22:41" on a London-time device
+  eq(madeText(old, "evening", now), `As of ${relativeDay(old, now)} ${localTime(old)}`);
+  if (relativeDay(old, now) === "Fri 14 Nov") eq(madeText(old, "evening", now), "As of Fri 14 Nov " + localTime(old));
 });
 
 test("minutesText warns from 1,700 of 2,000", () => {
