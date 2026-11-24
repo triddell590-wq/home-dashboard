@@ -6,10 +6,10 @@
 import { el, pct } from "../core/dom.js";
 import { go } from "../core/router.js";
 import { runKind } from "../trading/cards.js";
-import { areaChart, chartsReady } from "../trading/charts.js";
+import { areaChart, cleanSeries, chartsReady } from "../trading/charts.js";
 import { chips } from "../trading/chips.js";
 import { mountLive } from "../trading/live.js";
-import { localTime, madeText, matchStocks, rankText, relativeDay } from "../trading/text.js";
+import { dayText, londonDate, madeText, matchStocks, rankText, relativeDay, localTime } from "../trading/text.js";
 
 export const tab = { id: "research", label: "Research", order: 30, mount };
 
@@ -31,11 +31,15 @@ export function tickerState(ticker, universe, doc) {
   return { followed: true, stock };
 }
 
+// Earnings times are published without a zone; they are read as UTC so every device agrees.
+const reportTime = (e) => new Date(`${text(e.report_at).replace(" ", "T")}Z`);
+const reportDate = (e) => (Number.isNaN(reportTime(e).getTime()) ? "—" : londonDate(reportTime(e).toISOString()));
+
 /** The last reported quarter and the next one still to come, from the earnings rows. */
 export function earningsSummary(rows, now = new Date()) {
   const at = (e) => text(e.report_at);
   const reported = arr(rows).filter((e) => e.eps_actual != null).sort((a, b) => at(b).localeCompare(at(a)));
-  const upcoming = arr(rows).filter((e) => e.eps_actual == null && new Date(at(e).replace(" ", "T")) > now).sort((a, b) => at(a).localeCompare(at(b)));
+  const upcoming = arr(rows).filter((e) => e.eps_actual == null && reportTime(e) > now).sort((a, b) => at(a).localeCompare(at(b)));
   return { last: reported[0] || null, next: upcoming[0] || null };
 }
 
@@ -84,25 +88,30 @@ const sub = (t, cls = "") => el("p", { class: `sub ${cls}`.trim() }, t);
 
 function headerCard(state, doc, ticker, dispose) {
   const { stock } = state;
-  const prices = arr(doc.prices).filter((p) => p && typeof p.close === "number" && typeof p.date === "string");
+  const points = cleanSeries(arr(doc.prices).map((p) => ({ time: p && p.date, value: p && p.close })));
+  const prices = points.map((p) => ({ date: p.time, close: p.value }));
   const last = prices.at(-1);
   const prev = prices.at(-2);
   const change = last && prev ? last.close / prev.close - 1 : null;
   const sixMonths = prices.length > 1 ? last.close / prices[0].close - 1 : null;
   const box = el("div", { class: "chart-box" });
   const card = el("section", { class: "card wide", "data-card": "r_header" },
-    label([SOURCES[stock.source], stock.sector].filter(Boolean).join(" · ") || "Stock", last ? el("span", {}, `Last close ${last.date}`) : null),
+    label([SOURCES[stock.source], stock.sector].filter(Boolean).join(" · ") || "Stock", last ? el("span", {}, `Last close ${dayText(last.date)}`) : null),
     el("div", { class: "big" }, el("span", { class: "ticker" }, stock.ticker), " ", stock.name),
     last ? el("p", { class: "sub" }, `$${last.close.toFixed(2)} `,
       change == null ? null : el("span", { class: change >= 0 ? "up" : "down" }, `${pct(change)} on the day`),
       sixMonths == null ? null : el("span", {}, ` · ${pct(sixMonths)} over six months`)) : null,
-    prices.length ? (chartsReady() ? box : sub("The chart couldn't load.")) : sub("No price history yet: it is downloaded with the next morning's run."),
+    prices.length ? (chartsReady() ? box : sub("The chart couldn't load.")) : sub("No chart data"),
     doc.madeAt ? sub(madeText(doc.madeAt, runKind(doc.madeAt)), "made") : null);
   if (prices.length && chartsReady()) {
     queueMicrotask(() => {
       if (!box.isConnected) return;
-      const chart = areaChart(box, prices.map((p) => ({ time: p.date, value: p.close })));
-      dispose.push(chart.dispose);
+      try {
+        dispose.push(areaChart(box, points).dispose);
+      } catch (err) {
+        console.warn("chart:", err);
+        box.replaceWith(sub("No chart data"));
+      }
     });
   }
   return card;
@@ -133,8 +142,8 @@ function earningsCard(doc) {
   const { last, next } = earningsSummary(rows);
   card.append(
     last ? el("div", { class: "big" }, last.surprise_pct == null ? `EPS ${last.eps_actual}` : `${last.surprise_pct >= 0 ? "Beat" : "Missed"} by ${Math.abs(last.surprise_pct).toFixed(0)}%`) : el("div", { class: "big" }, "—"),
-    last ? sub(`Last report ${text(last.report_at).slice(0, 10)}: ${last.eps_actual} vs ${last.eps_estimate ?? "?"} expected`) : null,
-    next ? sub(`Next report ${relativeDay(text(next.report_at).replace(" ", "T"))} ${text(next.report_at).slice(0, 10)}`) : sub("Next report date not known yet"));
+    last ? sub(`Last report ${reportDate(last)}: ${last.eps_actual} vs ${last.eps_estimate ?? "?"} expected`) : null,
+    next ? sub(`Next report ${relativeDay(reportTime(next).toISOString())} ${reportDate(next)}`) : sub("Next report date not known yet"));
   return card;
 }
 
@@ -145,7 +154,7 @@ function analystCard(doc) {
   card.append(el("div", { class: "news" }, rows.map((a) => el("div", { class: "news-item" },
     el("span", { class: `marker ${a.action === "up" ? "up" : a.action === "down" ? "down" : "muted"}` }, a.action === "up" ? "▲" : a.action === "down" ? "▼" : "•"),
     el("div", {}, `${text(a.firm)}: ${ACTIONS[a.action] || text(a.action)}${a.to_grade ? ` · ${a.to_grade}` : ""}`,
-      el("br"), el("small", {}, `${text(a.public_at).slice(0, 10)} ${a.public_at ? localTime(a.public_at) : ""}`))))));
+      el("br"), el("small", {}, `${londonDate(a.public_at)} ${a.public_at ? localTime(a.public_at) : ""}`))))));
   return card;
 }
 
@@ -158,7 +167,7 @@ function newsCard(doc) {
     const href = safeUrl(n.url);
     return el(href ? "a" : "div", { class: "news-item", href, target: href ? "_blank" : null, rel: href ? "noopener noreferrer" : null },
       el("span", { class: `marker ${s > 0.05 ? "up" : s < -0.05 ? "down" : "muted"}` }, s > 0.05 ? "▲" : s < -0.05 ? "▼" : "•"),
-      el("div", {}, text(n.title), el("br"), el("small", {}, `${text(n.publisher)} · ${text(n.public_at).slice(0, 10)}`)));
+      el("div", {}, text(n.title), el("br"), el("small", {}, `${text(n.publisher)} · ${londonDate(n.public_at)}`)));
   })));
   return card;
 }

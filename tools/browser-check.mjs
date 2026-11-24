@@ -272,9 +272,11 @@ for (const theme of themes) {
         if (await scrollWidth() > width) problems.push("the Add preview widens the page");
       }
       if (name === "research") {
-        await evaluate(`location.hash = "#/research/ZZZZ"`);
-        await waitFor(`document.querySelector("#page").textContent.includes("The model doesn't follow this stock")`, "the not-followed message");
-        if (await scrollWidth() > width) problems.push("the not-followed page widens the page");
+        for (const odd of ["ZZZZ", "..", "A%2FB"]) {   // the last two must be read as "not followed" without any listener on a bad path
+          await evaluate(`location.hash = "#/research/${odd}"`);
+          await waitFor(`document.querySelector("#page").textContent.includes("The model doesn't follow this stock")`, `the not-followed message for ${odd}`);
+          if (await scrollWidth() > width) problems.push(`the not-followed page for ${odd} widens the page`);
+        }
       }
       if (name === "overview") {
         const sw = await longNameWidth();

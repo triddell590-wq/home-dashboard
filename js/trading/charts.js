@@ -23,6 +23,16 @@ export function chartTheme() {
   };
 }
 
+/** Chart points sorted by date, with invalid points and repeated dates dropped (the library throws on either). */
+export function cleanSeries(points) {
+  const byTime = new Map();
+  for (const p of Array.isArray(points) ? points : []) {
+    if (!p || typeof p.time !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(p.time) || typeof p.value !== "number" || !Number.isFinite(p.value)) continue;
+    byTime.set(p.time, { time: p.time, value: p.value });     // the later of two points on one day wins
+  }
+  return [...byTime.values()].sort((a, b) => a.time.localeCompare(b.time));
+}
+
 /** True when the vendored library has loaded (it is a deferred classic script). */
 export const chartsReady = () => typeof LightweightCharts !== "undefined";
 
@@ -31,7 +41,7 @@ export function lineChart(container, series, extra = {}) {
   const chart = LightweightCharts.createChart(container, { autoSize: true, ...chartTheme(), ...extra });
   const lines = series.map(({ name, points, color }) => {
     const line = chart.addLineSeries({ color: color || cssVar("--accent"), lineWidth: 2, title: name, priceLineVisible: false });
-    line.setData(points);
+    line.setData(cleanSeries(points));
     return line;
   });
   chart.timeScale().fitContent();
@@ -49,7 +59,7 @@ export function areaChart(container, points) {
     series.applyOptions({ lineColor: cssVar("--accent"), topColor: cssVar("--accent-glow"), bottomColor: "rgba(0,0,0,0)" });
   };
   colour();
-  series.setData(points);
+  series.setData(cleanSeries(points));
   chart.timeScale().fitContent();
   window.addEventListener("themechange", colour);
   return { chart, series, dispose: () => { window.removeEventListener("themechange", colour); chart.remove(); } };

@@ -485,7 +485,7 @@ test("the trading page builds its notices and rows from the documents", async ()
   ok(lines.some(([, t]) => t === "A source failed"));
   ok(lines.some(([, t]) => t === "Not available this morning: news."));
   ok(lines.some(([, t]) => t.startsWith("Sold early: NVDA")));
-  ok(lines.at(-1)[1].includes("model hgb · 571 stocks ranked · prices from 2026-11-19"));
+  ok(lines.at(-1)[1].includes("model hgb · 571 stocks ranked · prices from Thu 19 Nov"));
   eq(rankingRows(undefined), []);
   const rows = rankingRows([{ ticker: "AAPL", name: "Apple", sector: "Tech", source: "sp500", top_pct: 1, change: 0.01 }, { ticker: "X", source: "weird" }]);
   eq(rows.map((r) => [r.n, r.ticker, r.from, r.rank, r.tone]), [[1, "AAPL", "S&P 500", "Top 1%", "up"], [2, "X", "weird", "—", ""]]);
@@ -546,4 +546,38 @@ test("the trading fixtures follow the document contract and feed the pure pieces
   eq(latestRows(docs.lab.evaluations).latest, "2026-11-15");
   const { tickerState } = await import("../views/research.js");
   eq(tickerState("AAPL", docs.universe.rows, ticker).followed, true);
+});
+
+test("cleanSeries sorts by date, drops duplicates and invalid points", async () => {
+  const { cleanSeries } = await import("../trading/charts.js");
+  const out = cleanSeries([
+    { time: "2026-11-19", value: 3 }, { time: "2026-11-17", value: 1 }, { time: "2026-11-19", value: 4 }, { time: "bad", value: 2 },
+    { time: "2026-11-18", value: NaN }, { time: "2026-11-18", value: null }, null, { time: "2026-11-20", value: 5 }]);
+  eq(out, [{ time: "2026-11-17", value: 1 }, { time: "2026-11-19", value: 4 }, { time: "2026-11-20", value: 5 }]);
+  eq(cleanSeries(undefined), []);
+});
+
+test("trading dates are written by the London formatters, not raw", async () => {
+  const { dayText, londonDate } = await import("../trading/text.js");
+  eq(dayText("2026-11-20"), "Fri 20 Nov");
+  eq(dayText("nonsense"), "nonsense");
+  eq(dayText(null), "—");
+  eq(londonDate("2026-07-01T23:30:00Z"), "Thu 2 Jul");   // 00:30 in London, though still 1 July in UTC
+  eq(londonDate(null), "—");
+});
+
+test("an empty Trading page says there are no picks once", async () => {
+  const { emptyLines } = await import("../views/trading.js");
+  const now = new Date("2026-11-24T15:00:00Z");          // after the arrival time on a trading day
+  const lines = emptyLines(null, { minutes: { used: 100, limit: 2000 } }, now);
+  eq(lines.filter(([, t]) => t.startsWith("No picks yet today")).length, 1);
+  ok(lines.some(([, t]) => t.startsWith("The model prepares them after")));
+});
+
+test("the trading views show no raw date strings", async () => {
+  for (const file of ["../views/trading.js", "../views/research.js", "../views/lab.js"]) {
+    const src = await sourceOf(file);
+    ok(!/\.slice\(0,\s*10\)/.test(src), `${file} slices a date out of a timestamp`);
+    ok(!/\$\{[^}]*\.(day|as_of|signal_date|champion_since)\}/.test(src), `${file} shows a raw date`);
+  }
 });

@@ -5,7 +5,7 @@
 import { el, table } from "../core/dom.js";
 import { pctOrDash, signClass } from "../trading/charts.js";
 import { mountLive } from "../trading/live.js";
-import { causeSplitText, lessonText, madeText } from "../trading/text.js";
+import { causeSplitText, dayText, lessonText, madeText, monthText } from "../trading/text.js";
 import { runKind } from "../trading/cards.js";
 
 export const tab = { id: "lab", label: "Strategy lab", order: 40, mount };
@@ -57,9 +57,9 @@ function versionsCard(lab, status) {
     return "—";
   };
   return el("section", { class: "card wide static", "data-card": "lab_versions" },
-    label("The picks model's weekly test", latest ? el("span", {}, `Latest ${latest}`) : null),
+    label("The picks model's weekly test", latest ? el("span", {}, `Latest ${dayText(latest)}`) : null),
     el("div", { class: "big" }, `Champion: ${lab.champion ?? "—"}`),
-    sub(`${lab.champion_since ? `Champion since ${lab.champion_since}. ` : ""}Holds picks ${hold} trading day${hold > 1 ? "s" : ""}. Confidence level it waits for: ${threshold}.`),
+    sub(`${lab.champion_since ? `Champion since ${dayText(lab.champion_since)}. ` : ""}Holds picks ${hold} trading day${hold > 1 ? "s" : ""}. Confidence level it waits for: ${threshold}.`),
     rows.length
       ? el("div", { class: "scroll", style: { marginTop: "12px" } }, table(
         ["Version", num("Hold"), num("Score"), num("t-stat"), num("Avg daily excess"), num("Worst drop (SPY)"), num("Beat SPY in blocks"), "Result"],
@@ -89,7 +89,7 @@ function traderCard(lab) {
   const exits = t.exits_on ? `Early sales are on: a held stock is sold at the next open once its chart check falls below ${Math.round(t.exit_level * 100)}%.`
     : "Early sales are off: stocks are held to the end of their hold.";
   return el("section", { class: "card wide static", "data-card": "lab_trader" },
-    label("Chart trader", el("span", {}, `Latest ${t.as_of}`)),
+    label("Chart trader", el("span", {}, `Latest ${dayText(t.as_of)}`)),
     el("div", { class: "big" }, used),
     ...(t.error ? [sub(`Couldn't be tested: ${t.error}`, "down")] : []),
     sub(t.trader_on
@@ -120,11 +120,11 @@ function lessonsCard(lab) {
     ? `Wins: ${Math.round(((wins.lift || {}).share || 0) * 100)}% market or sector lift, ${Math.round(((wins.stock || {}).share || 0) * 100)}% the stock's own move` : "";
   const examples = Object.entries(d.examples || {}).filter(([, list]) => arr(list).length).map(([cause, list]) =>
     el("p", { class: "sub", style: { margin: "6px 0 0" } }, `${NAMES[cause] || cause}: `,
-      ...list.map((t, i) => el("span", {}, i ? " · " : "", tickerLink(t.ticker), ` ${t.signal_date} `,
+      ...list.map((t, i) => el("span", {}, i ? " · " : "", tickerLink(t.ticker), ` ${dayText(t.signal_date)} `,
         el("span", { class: signClass(t.net_ret) }, pctOrDash(t.net_ret)),
         arr(t.warnings).length ? ` (${t.warnings.join("; ").toLowerCase()})` : ""))));
   return el("section", { class: "card wide static", "data-card": "lab_lessons" },
-    label("Lessons learned", d.month ? el("span", {}, `${d.month} · ${d.source === "live" ? "live trades" : "replayed history"}`) : null),
+    label("Lessons learned", d.month ? el("span", {}, `${monthText(d.month)} · ${d.source === "live" ? "live trades" : "replayed history"}`) : null),
     ...(d.month ? [el("div", { class: "big" }, causeSplitText(share(d.losses)) || "No losses this month")] : []),
     ...(winLine ? [sub(winLine)] : []),
     ...examples,
@@ -142,11 +142,11 @@ function lessonsCard(lab) {
 function intradayCard(lab) {
   const i = lab.intraday || {};
   const last = i.last_collection;
-  const lastText = !last ? "" : last.error ? ` Last evening (${last.day}) the collection failed: ${last.error}.`
-    : ` Last evening (${last.day}): ${last.tickers - last.failed} of ${last.tickers} stocks saved${last.failed ? `, ${last.failed} failed` : ""}.`;
+  const lastText = !last ? "" : last.error ? ` Last evening (${dayText(last.day)}) the collection failed: ${last.error}.`
+    : ` Last evening (${dayText(last.day)}): ${last.tickers - last.failed} of ${last.tickers} stocks saved${last.failed ? `, ${last.failed} failed` : ""}.`;
   return el("section", { class: "card wide bare static", "data-card": "lab_intraday" },
     el("p", { class: `sub ${last && (last.error || last.failed) ? "warn" : ""}`.trim(), style: { margin: "0" } }, i.stocks
-      ? `Intraday candles saved: ${i.stocks} stocks over ${i.days} trading day${i.days === 1 ? "" : "s"} (${i.first} to ${i.last}), kept for a later intraday trading layer.${lastText}`
+      ? `Intraday candles saved: ${i.stocks} stocks over ${i.days} trading day${i.days === 1 ? "" : "s"} (${dayText(i.first)} to ${dayText(i.last)}), kept for a later intraday trading layer.${lastText}`
       : `Intraday candles: none saved yet — collection starts with the next evening run.${lastText}`));
 }
 

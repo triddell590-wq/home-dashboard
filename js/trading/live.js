@@ -4,7 +4,7 @@
 import { data } from "../core/data.js";
 import { el } from "../core/dom.js";
 import { onVisible } from "../core/visible.js";
-import { readTicker, readTrading, watchTrading } from "./load.js";
+import { isTicker, readTicker, readTrading, watchTrading } from "./load.js";
 import { nyDay } from "./market.js";
 
 export const LOAD_FAILED = "Couldn't load this. Check your connection and try again.";
@@ -31,7 +31,7 @@ export function mountLive(body, { names, optional = [], ticker = null, render, e
       try { docs[name] = await readTrading(name); } catch { docs[name] = null; }
       seen.set(name, text(docs[name]));
     }
-    if (ticker) { docs.ticker = await readTicker(ticker); seen.set("ticker", text(docs.ticker)); }
+    if (ticker != null) { docs.ticker = await readTicker(ticker); seen.set("ticker", text(docs.ticker)); }
     return docs;
   }
 
@@ -67,10 +67,11 @@ export function mountLive(body, { names, optional = [], ticker = null, render, e
     if (!alive) return;
     const all = [...names, ...optional];
     const changed = (name, doc) => { const t = text(doc); if (seen.get(name) === t) return; seen.set(name, t); load(); };
+    const stops = [];
+    stopWatch = () => { for (const s of stops.splice(0)) if (typeof s === "function") s(); };   // set first, so a failed watch below never loses the ones already running
     try {
-      const stops = [watchTrading(all, changed)];
-      if (ticker) stops.push(data().watch(`tradingTickers/${ticker}`, (doc) => changed("ticker", doc && typeof doc === "object" && !Array.isArray(doc) ? doc : null)));
-      stopWatch = () => { for (const s of stops) if (typeof s === "function") s(); };
+      stops.push(watchTrading(all, changed));
+      if (isTicker(ticker)) stops.push(data().watch(`tradingTickers/${ticker}`, (doc) => changed("ticker", doc && typeof doc === "object" && !Array.isArray(doc) ? doc : null)));
     } catch { /* no live updates; the page still shows what was read */ }
     stopVisible = typeof document === "undefined" ? () => {} : onVisible(load);   // an app left open overnight moves on to the new day
   });

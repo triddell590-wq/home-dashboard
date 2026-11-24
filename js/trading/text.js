@@ -245,3 +245,24 @@ export function minutesText(minutes) {
   const n = (x) => Number(x).toLocaleString("en-GB");
   return `GitHub minutes: ${n(minutes.used)} of ${n(minutes.limit)} used this month — retries are off until the 1st`;
 }
+
+/** A calendar day (YYYY-MM-DD, such as a New York trading day) as "Fri 20 Nov". Anything else is returned as it is. */
+export function dayText(ymd) {
+  if (ymd == null || ymd === "") return "—";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(ymd))) return String(ymd);
+  const d = new Date(`${ymd}T12:00:00Z`);
+  return `${SHORT_DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+
+/** A month (YYYY-MM) as "Oct 2026". */
+export function monthText(ym) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(ym || ""));
+  return m ? `${MONTHS[Number(m[2]) - 1]} ${m[1]}` : String(ym ?? "—");
+}
+
+/** The London date of a moment (an ISO time) as "Fri 20 Nov"; "—" when there is none. */
+export function londonDate(iso) {
+  if (!iso) return "—";
+  const t = new Date(String(iso));
+  return Number.isNaN(t.getTime()) ? "—" : dayText(londonDay(t));
+}

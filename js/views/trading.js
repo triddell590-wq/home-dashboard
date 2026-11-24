@@ -10,7 +10,7 @@ import { pctOrDash, signClass } from "../trading/charts.js";
 import { forwardFrom } from "../trading/load.js";
 import { mountLive } from "../trading/live.js";
 import { nyDay } from "../trading/market.js";
-import { chartText, holdText, localTime, madeText, minutesText, outlookText, picksSummary, rankText, relativeDay, runNotice, skippedText } from "../trading/text.js";
+import { chartText, dayText, holdText, localTime, madeText, minutesText, outlookText, picksSummary, rankText, relativeDay, runNotice, skippedText } from "../trading/text.js";
 
 export const tab = { id: "trading", label: "Trading", icon: "picks", order: 20, mount };
 
@@ -32,10 +32,22 @@ export function noticeLines(today, status) {
   if (arr(p.sources_missing).length) lines.push(["", `Not available this morning: ${p.sources_missing.join(", ")}.`]);
   const engine = (status && status.engine) || {};
   for (const sold of arr(engine.sold_early)) {
-    lines.push(["", `Sold early: ${sold.ticker} (bought ${sold.opened}) was sold at the open on ${sold.sold_on}, before its planned sale on ${sold.sell_on}, because its chart turned weak.`]);
+    lines.push(["", `Sold early: ${sold.ticker} (bought ${dayText(sold.opened)}) was sold at the open on ${dayText(sold.sold_on)}, before its planned sale on ${dayText(sold.sell_on)}, because its chart turned weak.`]);
   }
   const when = today.published_at ? `${relativeDay(today.published_at)} ${localTime(today.published_at)}` : "?";
-  lines.push(["", `Published ${when} · model ${p.champion || "research"} · ${p.universe_size || "?"} stocks ranked · prices from ${p.signal_date || "—"}`]);
+  lines.push(["", `Published ${when} · model ${p.champion || "research"} · ${p.universe_size || "?"} stocks ranked · prices from ${dayText(p.signal_date)}`]);
+  return lines;
+}
+
+/** The lines when no picks have been published yet: "No picks yet today" once (the amber notice says it when it can), then why. */
+export function emptyLines(today, status, now = new Date()) {
+  const notice = runNotice(status, today, now);
+  const minutes = minutesText(status && status.minutes);
+  const lines = [];
+  if (notice) lines.push(["warn", notice]);
+  if (!notice || !notice.startsWith("No picks yet today")) lines.push(["", "No picks yet today"]);
+  lines.push(["", `The model prepares them after ${localTime(picksSummary(today, now).expected_after)} on trading days.`]);
+  if (minutes) lines.push(["warn", minutes]);
   return lines;
 }
 
@@ -74,9 +86,7 @@ function draw({ today, status, record }, body) {
   const notice = runNotice(status, today, now);
 
   if (!today || !today.day) {
-    grid.append(el("section", { class: "card wide bare" }, ...(notice ? [line("warn", notice)] : []),
-      line("", "No picks yet today"), line("", `The model prepares them after ${localTime(picksSummary(today, now).expected_after)} on trading days.`),
-      ...(minutes ? [line("warn", minutes)] : [])));
+    grid.append(el("section", { class: "card wide bare" }, ...emptyLines(today, status, now).map(([cls, t]) => line(cls, t))));
     body.append(grid);
     return;
   }
@@ -88,7 +98,7 @@ function draw({ today, status, record }, body) {
     ...(notice ? [["warn", notice]] : []),
     ...(minutes ? [["warn", minutes]] : []),
     ...(made ? [["made", made]] : []),
-    ...(old ? [["", `These are the picks from ${today.day}.`]] : []),
+    ...(old ? [["", `These are the picks from ${dayText(today.day)}.`]] : []),
     ...noticeLines(today, status),
   ];
   grid.append(el("section", { class: "card wide bare", "data-card": "trading_notices" }, ...lines.map(([cls, t]) => line(cls, t))));
@@ -127,7 +137,7 @@ function draw({ today, status, record }, body) {
   grid.append(el("section", { class: "card wide", "data-card": "trading_record" },
     el("div", { class: "label" }, "Live record · picks published before the open · latest 20 days"),
     days.length
-      ? el("div", { class: "scroll", style: { marginTop: "10px" } }, table(["Day", num("Picks"), num("S&P 500")], days.map((d) => [d.day, td(d.pick_return), td(d.spy_return)])))
+      ? el("div", { class: "scroll", style: { marginTop: "10px" } }, table(["Day", num("Picks"), num("S&P 500")], days.map((d) => [dayText(d.day), td(d.pick_return), td(d.spy_return)])))
       : el("p", { class: "sub" }, "The live record starts with the first picks published before an open.")));
   body.append(grid);
 }

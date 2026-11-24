@@ -7,7 +7,10 @@ export const TRADING_PATHS = {
   unlock: "trading/unlock", lab: "trading/lab", universe: "trading/universe",
 };
 export const READ_WAIT_MS = 10000;
-const TICKER = /^[A-Z0-9.\-^=]{1,12}$/;
+const TICKER = /^[A-Z0-9^][A-Z0-9.\-^=]{0,11}$/;   // starts with a letter, digit or ^, so ".." and "../x" never reach a path
+
+/** True for a plausible ticker symbol: the only kind that may be put in a document path. */
+export const isTicker = (t) => typeof t === "string" && TICKER.test(t);
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const pathOf = (name) => {
@@ -31,7 +34,7 @@ export async function readTrading(name, waitMs = READ_WAIT_MS) {
 
 /** One ticker's document, or null (without reading anything) when the symbol is not a plausible ticker. */
 export async function readTicker(ticker, waitMs = READ_WAIT_MS) {
-  if (typeof ticker !== "string" || !TICKER.test(ticker)) return null;
+  if (!isTicker(ticker)) return null;
   const path = `tradingTickers/${ticker}`;
   const doc = await withTimeout(Promise.resolve(data().get(path)), waitMs, path);
   return isObject(doc) ? doc : null;
@@ -42,12 +45,19 @@ export async function readTicker(ticker, waitMs = READ_WAIT_MS) {
 export function watchTrading(names, onChange) {
   const paths = names.map(pathOf);   // validate every name before subscribing to any
   let stopped = false;
-  const stops = paths.map((path, i) => {
-    const name = names[i];
-    return data().watch(path, (doc) => {
-      if (!stopped) onChange(name, isObject(doc) ? doc : null);
+  const stops = [];
+  try {
+    paths.forEach((path, i) => {
+      const name = names[i];
+      stops.push(data().watch(path, (doc) => {
+        if (!stopped) onChange(name, isObject(doc) ? doc : null);
+      }));
     });
-  });
+  } catch (err) {                        // a watch that cannot start must not leave the earlier ones running
+    stopped = true;
+    for (const s of stops) if (typeof s === "function") s();
+    throw err;
+  }
   return () => { stopped = true; for (const s of stops) if (typeof s === "function") s(); };
 }
 
