@@ -1,5 +1,8 @@
 # Setting up your dashboard online
 
+> **Already done (23 November 2026):** steps 1 to 9. Your Firebase project is called **Home Dashboard**
+> (`home-dashboard-cd09e`); don't create another. **Start at step 10.**
+
 You do this once, in this order. Firebase's menu names change from time to time, so the names below may differ slightly.
 
 Until you finish, the app runs in test mode and shows "Test mode — nothing is saved". To look round in test mode, sign in as `test@example.com` with the password `test-only-password`. That is a throwaway login that only exists in test mode: it protects nothing, and it stops working once Firebase is connected.
@@ -28,8 +31,9 @@ Until you finish, the app runs in test mode and shows "Test mode — nothing is 
 8. **Switch to the new settings.** Once Claude has committed and published the settings, open the app wherever you already use it and tap **Update** when it says "New version ready". (If it doesn't appear, go to Settings and choose **Check for update**.) The "Test mode" note goes away, and you sign in with the email and password from step 4.
 9. **Put it on your phone.** Open `https://triddell590-wq.github.io/home-dashboard/` in Safari, tap **Share**, then **Add to Home Screen**. Open it from the new icon and sign in once.
 10. **Turn on Met Office warnings.** The Weather tab shows Met Office warnings, which a small job on GitHub fetches every hour. It needs a key to write to your database; you make it once.
-   - In the Firebase console, click the gear icon next to **Project Overview**, choose **Project settings**, open the **Service accounts** tab, and click **Generate new private key**, then **Generate key**. A small file ending in `.json` downloads to your computer.
+   - In the Firebase console, open the **Home Dashboard** project (not Farm Ledger), click the gear icon next to **Project Overview**, choose **Project settings**, open the **Service accounts** tab, and click **Generate new private key**, then **Generate key**. A small file ending in `.json` downloads to your computer.
    - Open your repository on GitHub, then **Settings → Secrets and variables → Actions → New repository secret**. For **Name** type `FIREBASE_SERVICE_ACCOUNT`. Open the downloaded file in a text editor, select everything in it, and paste it into **Secret**. Click **Add secret**.
+   - Do the same in your **trading-engine** repository (same name, same file contents), so the trading engine can publish its results too.
    - Delete the downloaded file from your computer (and empty the bin). The key now lives only in GitHub.
    - To fetch the warnings straight away, open the repository's **Actions** tab, choose **Met Office warnings**, then **Run workflow**. Until it has run once, the Weather tab says "Met Office warnings unavailable". Nothing else breaks while the key is missing; the job just skips with a note.
 
