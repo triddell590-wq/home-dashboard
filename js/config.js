@@ -9,4 +9,4 @@ export const FIREBASE_CONFIG = {
 };
 
 // The public Web Push (VAPID) key from SETUP.md step 11. Public by design, safe to commit. Empty until that step is done.
-export const VAPID_KEY = "";
+export const VAPID_KEY = "BMr3RVrliarp1iNphmhSuiI83Z3OeFbE-i6f-65xopxwUJXH2WV1U7FOHXliGoUjnYwsKqRdDMHffIcUJY3gICs";
