@@ -51,6 +51,8 @@ var FILES = [
   "./js/weather/place.js",
   "./js/weather/forecast.js",
   "./js/trading/load.js",
+  "./js/trading/market.js",
+  "./js/trading/text.js",
   "./js/views/calendar.js",
   "./js/views/lessons.js",
   "./js/views/overview.js",
