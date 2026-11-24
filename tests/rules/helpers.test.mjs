@@ -44,5 +44,22 @@ await check('java present -> run the emulator (CI or not)', () => {
   assert.equal(run.decideJavaAction(true, true).run, true);
 });
 
+// The trading paths are written only by the Admin SDK: read-only for the owner, everything else unchanged.
+const stripped = rulesText.replace(/\/\/.*$/gm, '');
+await check('rules: trading paths are read-only for the owner', () => {
+  assert.match(stripped, /\[\s*'trading'\s*,\s*'tradingTickers'\s*,\s*'tradingPicks'\s*\]/);
+  assert.match(stripped, /allow read:\s*if owner\(uid\)\s*;/);
+  assert.match(stripped, /allow write:\s*if owner\(uid\)\s*&&\s*!\(coll in \[/);
+});
+await check('rules: the user document itself stays read/write for the owner', () => {
+  assert.match(stripped, /match \/users\/\{uid\}\s*\{\s*allow read, write:\s*if owner\(uid\)\s*;/);
+});
+await check('rules: no blanket owner write remains on users/{uid}/{document=**}', () => {
+  assert.doesNotMatch(stripped, /users\/\{uid\}\/\{document=\*\*\}/);
+});
+await check('rules: owner() still checks the signed-in uid and ownerUid()', () => {
+  assert.match(stripped, /function owner\(uid\)\s*\{\s*return request\.auth != null\s*&&\s*request\.auth\.uid == uid\s*&&\s*uid == ownerUid\(\);\s*\}/);
+});
+
 if (failed) { console.log(failed + ' failed'); process.exit(1); }
 console.log('all passed');
