@@ -1,0 +1,56 @@
+{
+ "madeAt": "2026-11-20T11:40:00Z",
+ "unlocked": false,
+ "days": 14,
+ "conditions": [
+  {
+   "name": "days",
+   "rule": "At least 126 trading days of live results",
+   "value_text": "14 of 126",
+   "met": false,
+   "value": null
+  },
+  {
+   "name": "total_return",
+   "rule": "Total return after costs above buying and holding SPY",
+   "value_text": "+2.1% vs +1.0%",
+   "met": true,
+   "value": null
+  },
+  {
+   "name": "significance",
+   "rule": "Daily excess return over SPY with a t-statistic above 2",
+   "value_text": "t 0.8",
+   "met": false,
+   "value": null
+  },
+  {
+   "name": "sharpe",
+   "rule": "Sharpe ratio above SPY's over the same days",
+   "value_text": "1.1 vs 0.9",
+   "met": true,
+   "value": null
+  },
+  {
+   "name": "drawdown",
+   "rule": "Worst drop no more than 5 points deeper than SPY's",
+   "value_text": "-3% vs -4%",
+   "met": true,
+   "value": null
+  },
+  {
+   "name": "consistency",
+   "rule": "Beat SPY in at least 2 of the last 3 blocks",
+   "value_text": "1 of 3",
+   "met": false,
+   "value": null
+  },
+  {
+   "name": "champion_days",
+   "rule": "The current model version has at least 60 live days of its own",
+   "value_text": "14 of 60",
+   "met": false,
+   "value": null
+  }
+ ]
+}

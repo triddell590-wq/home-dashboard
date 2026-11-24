@@ -21,6 +21,9 @@ import * as lessons from "./views/lessons.js";
 import * as overview from "./views/overview.js";
 import * as settings from "./views/settings.js";
 import * as weather from "./views/weather.js";
+import * as trading from "./views/trading.js";
+import * as research from "./views/research.js";
+import * as lab from "./views/lab.js";
 import { registerTrading } from "./trading/cards.js";
 import { mountSignin } from "./views/signin.js";
 import { browserEnv, deviceId, messagingFor, refreshToken, whenActive } from "./calendar/push.js";
@@ -29,6 +32,9 @@ import { WEATHER_ICONS } from "./weather/text.js";
 const ICONS = {
   overview: '<rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/>',
   calendar: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/>',
+  picks: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+  research: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+  lab: '<path d="M9 3h6"/><path d="M10 3v6L5 19a1.5 1.5 0 0 0 1.3 2h11.4a1.5 1.5 0 0 0 1.3-2L14 9V3"/><path d="M7.5 15h9"/>',
   lessons: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
   weather: WEATHER_ICONS.cloud,
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
@@ -49,7 +55,7 @@ const $ = (id) => document.getElementById(id);
 const rail = document.querySelector(".rail");
 const page = $("page");
 
-for (const view of [overview, calendar, weather, lessons, settings]) registerTab(view.tab);
+for (const view of [overview, calendar, trading, research, lab, weather, lessons, settings]) registerTab(view.tab);
 calendar.registerCalendar({ registerCard, registerDayPart, registerSettingsCard });
 lessons.registerLessons({ registerCard, registerDayPart, registerSettingsCard });
 weather.registerWeather({ registerCard, registerDayPart, registerSettingsCard });

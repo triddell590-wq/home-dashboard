@@ -12,3 +12,13 @@ Firebase JS SDK compat builds, version **10.7.0**, copied unmodified from the np
 | `firebase-messaging-compat.js` | `33424948935d3a5f2c21d3f6c96c018eb5cfe7b2ddec00be94f0ae3cf5be3ba3` |
 
 To check: `shasum -a 256 vendor/*.js`.
+
+# Vendored charts
+
+TradingView Lightweight Charts **4.2.3** (Apache-2.0), `dist/lightweight-charts.standalone.production.js` copied unmodified from
+the npm package `lightweight-charts@4.2.3` (tarball integrity `sha512-5kS/2hY3wNYNzhnS8Gb+GAS07DX8GPF2YVDnd2NMC85gJVQ6RLU6YrXNgNJ6eg0AnWPwCnvaGtYmGky3HiLQEw==`).
+It is byte-identical to the copy in the Mac app. It attaches a global `LightweightCharts` and is loaded as a classic script; nothing comes from a CDN.
+
+| File | SHA-256 |
+| --- | --- |
+| `lightweight-charts.standalone.production.js` | `c7dda807d662a95b3d257119ed315cec669e3bdf5aaece75c480a39307f23540` |

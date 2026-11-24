@@ -418,3 +418,132 @@ test("the Calendar tab is the second tab", async () => {
   const { tab } = await import("../views/calendar.js");
   eq([tab.id, tab.label, tab.icon, tab.order], ["calendar", "Calendar", "calendar", 20]);
 });
+
+// ------------------------------------------------------------------ Trading, Research and Strategy lab
+
+test("trading tabs register with ids trading, research and lab in that order", async () => {
+  const { createRegistry } = await import("../core/registry.js");
+  const trading = await import("../views/trading.js");
+  const research = await import("../views/research.js");
+  const lab = await import("../views/lab.js");
+  const r = createRegistry();
+  for (const view of [lab, trading, research]) r.registerTab(view.tab);
+  eq(r.tabs().map((t) => [t.id, t.label, t.order]), [["trading", "Trading", 20], ["research", "Research", 30], ["lab", "Strategy lab", 40]]);
+  eq(trading.tab.icon, "picks");
+  eq(typeof trading.tab.mount, "function");
+  eq(typeof research.tab.mount, "function");
+  eq(typeof lab.tab.mount, "function");
+});
+
+test("research says a missing ticker is not followed", async () => {
+  const { tickerState, NOT_FOLLOWED } = await import("../views/research.js");
+  eq(NOT_FOLLOWED, "The model doesn't follow this stock");
+  const universe = [{ ticker: "AAPL", name: "Apple", sector: "Technology", source: "sp500" }];
+  eq(tickerState("ZZZZ", universe, null), { followed: false, message: "The model doesn't follow this stock" });
+  eq(tickerState("AAPL", universe, null).followed, false, "in the list but no document yet is still not followed");
+  const doc = { ticker: "AAPL", prices: [{ date: "2026-11-20", close: 100 }], rank: null };
+  const found = tickerState("AAPL", universe, doc);
+  eq([found.followed, found.stock.name], [true, "Apple"]);
+  eq(tickerState("XLE", universe, { ticker: "XLE", prices: [] }).stock, { ticker: "XLE", name: "", sector: "", source: "" }, "a followed ETF that is not in the list still shows");
+});
+
+test("research picks the newest rows and never trusts missing arrays", async () => {
+  const { newest, earningsSummary } = await import("../views/research.js");
+  eq(newest(undefined, 10), []);
+  eq(newest([1, 2, 3], 2), [1, 2]);
+  const e = earningsSummary([
+    { report_at: "2026-10-30 16:00:00", eps_actual: 1.5, eps_estimate: 1.4, surprise_pct: 7 },
+    { report_at: "2027-01-30 16:00:00", eps_actual: null, eps_estimate: 1.6 },
+    { report_at: "2026-07-30 16:00:00", eps_actual: 1.2, eps_estimate: 1.2, surprise_pct: 0 }], new Date("2026-11-24T12:00:00Z"));
+  eq([e.last.report_at, e.next.report_at], ["2026-10-30 16:00:00", "2027-01-30 16:00:00"]);
+  eq(earningsSummary([], new Date()), { last: null, next: null });
+});
+
+test("trading pieces: latest evaluations, drawdown text and blocks", async () => {
+  const { latestRows, blocksText, outcomeKind } = await import("../views/lab.js");
+  const evals = [
+    { name: "v1", as_of: "2026-11-08", is_champion: false }, { name: "v1", as_of: "2026-11-15", is_champion: true },
+    { name: "trader", as_of: "2026-11-15" }, { name: "v2", as_of: "2026-11-15", failed_rules: [1, 3] }];
+  eq(latestRows(evals).latest, "2026-11-15");
+  eq(latestRows(evals).rows.map((e) => e.name), ["v1", "v2"]);
+  eq(latestRows([]), { latest: null, rows: [] });
+  eq(blocksText({ blocks: [0.1, -0.2, 0.3] }), "2 of 3");
+  eq(blocksText({}), "—");
+  eq(outcomeKind({ error: "x" }), "error");
+  eq(outcomeKind({ is_champion: true }), "champion");
+  eq(outcomeKind({ failed_rules: [] }), "passed");
+  eq(outcomeKind({ failed_rules: [2] }), "failed");
+  eq(outcomeKind({}), "none");
+});
+
+test("the trading page builds its notices and rows from the documents", async () => {
+  const { noticeLines, rankingRows } = await import("../views/trading.js");
+  const today = { day: "2026-11-20", late: true, status: "ok", published_at: "2026-11-20T11:45:00Z",
+    payload: { picks: [], problems: ["A source failed"], sources_missing: ["news"], champion: "hgb", universe_size: 571, signal_date: "2026-11-19", message: null } };
+  const lines = noticeLines(today, { engine: { sold_early: [{ ticker: "NVDA", opened: "2026-11-17", sold_on: "2026-11-19", sell_on: "2026-11-24" }] } });
+  ok(lines.some(([cls, t]) => cls === "warn" && t.startsWith("Published after the market opened")));
+  ok(lines.some(([, t]) => t === "A source failed"));
+  ok(lines.some(([, t]) => t === "Not available this morning: news."));
+  ok(lines.some(([, t]) => t.startsWith("Sold early: NVDA")));
+  ok(lines.at(-1)[1].includes("model hgb · 571 stocks ranked · prices from 2026-11-19"));
+  eq(rankingRows(undefined), []);
+  const rows = rankingRows([{ ticker: "AAPL", name: "Apple", sector: "Tech", source: "sp500", top_pct: 1, change: 0.01 }, { ticker: "X", source: "weird" }]);
+  eq(rows.map((r) => [r.n, r.ticker, r.from, r.rank, r.tone]), [[1, "AAPL", "S&P 500", "Top 1%", "up"], [2, "X", "weird", "—", ""]]);
+});
+
+test("chart helpers show signs by the value as shown", async () => {
+  const { pctOrDash, signClass } = await import("../trading/charts.js");
+  eq(pctOrDash(0.0123), "+1.23%");
+  eq(pctOrDash(-0.5), "−50.00%");
+  eq(pctOrDash(-0.00003), "0.00%");
+  eq(pctOrDash(null), "—");
+  eq(pctOrDash(NaN), "—");
+  eq([signClass(0.02), signClass(-0.02), signClass(-0.00003), signClass(null)], ["up", "down", "", ""]);
+});
+
+test("the Trading, Research and Lab views and chart helpers place text only with textContent", async () => {
+  for (const file of ["../views/trading.js", "../views/research.js", "../views/lab.js", "../trading/charts.js"]) {
+    const view = await sourceOf(file);
+    ok(!/innerHTML/.test(view), `${file} uses innerHTML`);
+    ok(!/html\s*:/.test(view), `${file} uses the el html option`);
+    ok(!/\/api\//.test(view), `${file} calls /api`);
+    ok(!/simulator/i.test(view.replace(/\/\/.*$/gm, "")), `${file} mentions the simulator in code`);
+  }
+});
+
+test("the vendored Lightweight Charts file matches the hash in vendor/README.md and is cached", async () => {
+  const readme = await sourceOf("../../vendor/README.md");
+  const { createHash } = typeof document === "undefined" ? await import("node:crypto") : { createHash: null };
+  const file = "lightweight-charts.standalone.production.js";
+  const m = new RegExp("`" + file.replace(/\./g, "\\.") + "`[^`]*`([0-9a-f]{64})`").exec(readme);
+  ok(m, "vendor/README.md lists the file with its SHA-256");
+  ok(/4\.2\.3/.test(readme), "version noted");
+  if (createHash) {
+    const { readFile } = await import("node:fs/promises");
+    const bytes = await readFile(new URL("../../vendor/" + file, import.meta.url));
+    eq(createHash("sha256").update(bytes).digest("hex"), m[1]);
+  }
+  ok((await sourceOf("../../index.html")).includes(`<script defer src="vendor/${file}"></script>`), "index.html loads it");
+});
+
+test("the trading fixtures follow the document contract and feed the pure pieces", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const load = async (name) => JSON.parse(await readFile(new URL(`./fixtures/trading/${name}.json`, import.meta.url), "utf8"));
+  const docs = {};
+  for (const name of ["status", "today", "account", "record", "unlock", "lab", "universe"]) {
+    docs[name] = await load(name);
+    ok(typeof docs[name].madeAt === "string", `${name} has madeAt`);
+  }
+  const ticker = await load("tradingTickers/AAPL");
+  const day = await load("tradingPicks/2026-11-20");
+  eq([ticker.ticker, ticker.prices.length, typeof ticker.rank], ["AAPL", 126, "object"]);
+  eq(day.day, "2026-11-20");
+  eq(Object.keys(ticker.prices[0]), ["date", "open", "high", "low", "close"]);
+  const { noticeLines, rankingRows } = await import("../views/trading.js");
+  ok(noticeLines(docs.today, docs.status).length >= 1);
+  ok(rankingRows(docs.today.payload.ranking).some((r) => r.name.length === 80), "an 80-character unbroken name is seeded");
+  const { latestRows } = await import("../views/lab.js");
+  eq(latestRows(docs.lab.evaluations).latest, "2026-11-15");
+  const { tickerState } = await import("../views/research.js");
+  eq(tickerState("AAPL", docs.universe.rows, ticker).followed, true);
+});

@@ -199,3 +199,16 @@
 .tr-picks { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-items: start; }
 .tr-picks > .card.large { grid-column: auto; }
 @media (min-width: 901px) { .tr-picks { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); } }
+
+/* trading tabs: ticker links inside sentences and tables are tap targets on a phone; long text wraps inside its card */
+.tlink { display: inline-flex; align-items: center; color: inherit; }
+.news-item { grid-template-columns: auto minmax(0, 1fr); }
+.news-item > div { min-width: 0; overflow-wrap: anywhere; }
+.suggestions button { min-height: 44px; }
+.suggestions button > span:not(.ticker) { min-width: 0; overflow-wrap: anywhere; }
+.checklist div > span { min-width: 0; overflow-wrap: anywhere; }
+/* the library's own attribution link (kept, as its licence asks) is a tap target too */
+@media (max-width: 699px) {
+  .tlink { min-height: 44px; min-width: 44px; }
+  #tv-attr-logo { display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; box-sizing: border-box; }
+}
